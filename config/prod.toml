@@ -1,0 +1,8 @@
+# Production configuration file.
+# ------------------------------
+# These settings are advised for deployment scenarios.
+
+[application]
+    host = "0.0.0.0"
+[database]
+    require_ssl = true

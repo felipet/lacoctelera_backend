@@ -1,0 +1,20 @@
+# Base configuration file.
+# ------------------------
+# These settings are applied unless environment variables override any of the
+# following variables.
+
+[application]
+tracing_level = "info"
+port = "9090"
+host = "127.0.0.1"
+base_url = "http://127.0.0.1"
+
+# DB server
+[database]
+username = "user"
+password = "password"
+db_name = "cocktail"
+host = "127.0.0.1"
+port = "3306"
+max_connections = "10"
+idle_timeout_sec = "180"
