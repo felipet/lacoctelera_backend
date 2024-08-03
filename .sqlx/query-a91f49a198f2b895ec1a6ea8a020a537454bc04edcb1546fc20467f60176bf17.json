@@ -1,0 +1,47 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT `name`, `category`, `desc` FROM test_cocktail.Ingredient i WHERE i.name like ?",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "char_set": 224,
+          "max_size": 160
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "category",
+        "type_info": {
+          "type": "String",
+          "flags": "NOT_NULL | ENUM | NO_DEFAULT_VALUE",
+          "char_set": 224,
+          "max_size": 40
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "desc",
+        "type_info": {
+          "type": "VarString",
+          "flags": "",
+          "char_set": 224,
+          "max_size": 1020
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "a91f49a198f2b895ec1a6ea8a020a537454bc04edcb1546fc20467f60176bf17"
+}

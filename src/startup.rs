@@ -47,10 +47,14 @@ pub async fn run(
 ) -> Result<Server, anyhow::Error> {
     let db_pool = web::Data::new(db_pool);
 
-    let server =
-        HttpServer::new(move || App::new().service(routes::echo).app_data(db_pool.clone()))
-            .listen(listener)?
-            .run();
+    let server = HttpServer::new(move || {
+        App::new()
+            .service(routes::echo)
+            .service(routes::ingredient::get_ingredient)
+            .app_data(db_pool.clone())
+    })
+    .listen(listener)?
+    .run();
 
     Ok(server)
 }

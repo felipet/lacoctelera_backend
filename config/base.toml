@@ -13,7 +13,7 @@ base_url = "http://127.0.0.1"
 [database]
 username = "user"
 password = "password"
-db_name = "cocktail"
+db_name = "test_cocktail"
 host = "127.0.0.1"
 port = "3306"
 max_connections = "10"
