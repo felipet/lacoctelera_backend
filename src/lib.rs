@@ -1,3 +1,8 @@
+//! La Coctelera library.
+
+// Re-export of the domain objects.
+pub use domain::{IngCategory, Ingredient};
+
 pub mod configuration;
 pub mod startup;
 pub mod routes {
@@ -6,8 +11,10 @@ pub mod routes {
 
     pub mod ingredient {
         mod get;
+        mod post;
 
         pub use get::get_ingredient;
+        pub use post::add_ingredient;
     }
 }
 

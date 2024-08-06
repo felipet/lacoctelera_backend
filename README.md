@@ -29,6 +29,7 @@ using [Actix-Web][actix] as web framework.
 
 In order to build this service, the following dependences are needed:
 - **Rust compiler and ***cargo*****. Installation guidelines found [here][rust-install].
+- **MariaDB** Data Base Server. A simple script is included to launch a testing purpose DB.
 
 ## Build
 
@@ -42,16 +43,25 @@ From the root of the project's directory.
 
 ## Deploy
 
+### Data Base Sever
+
+The application needs a DB server to store the Cocktail's information. Any MySQL data
+base would work, but the scripts are ready for using [MariaDB](https://mariadb.com/).
+
+For a development or testing deployment, the easiest way to go would be to launch a
+DB instance using [Docker](https://www.docker.com/). If you don't have docker running
+in your development computer, follow the official guidelines for installing it.
+
+Once having Docker installed, simply run the script `scripts/init_db.bash` to launch
+a new container using MariaDB's image. A set of migrations will be executed to prepare
+the DB's schema. **However, no real data will be dump into the DB.** Thus before
+attempting to retrieve data from the DB, push some into it!
+
 To run the service, simply type:
 
 ```bash
 $ cargo run
 ```
-
-From the root of the project's directory.
-
-Then, perform a **GET** request to the address: *http://127.0.0.1:8080/* to get a
-greeting message.
 
 # Development
 

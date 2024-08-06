@@ -51,6 +51,7 @@ pub async fn run(
         App::new()
             .service(routes::echo)
             .service(routes::ingredient::get_ingredient)
+            .service(routes::ingredient::add_ingredient)
             .app_data(db_pool.clone())
     })
     .listen(listener)?
