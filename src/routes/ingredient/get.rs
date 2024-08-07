@@ -2,6 +2,7 @@ use crate::domain::Ingredient;
 use actix_web::{get, web, HttpResponse, Responder, Result};
 use serde::Deserialize;
 use sqlx::MySqlPool;
+use utoipa::IntoParams;
 
 /// `Struct` QueryData models the expected fields for a query string.
 ///
@@ -11,12 +12,31 @@ use sqlx::MySqlPool;
 /// the internal parsing logic of the framework. This way, the endpoint handler would only receive
 /// valid data, since wrong data is rejected and the request is answered with a code 400 by the
 /// framework.
-#[derive(Deserialize)]
-struct QueryData {
+#[derive(Deserialize, IntoParams)]
+pub struct QueryData {
     pub name: String,
 }
 
 /// GET handler of the API's `/ingredient` endpoint.
+#[utoipa::path(
+    get,
+    path = "/ingredient",
+    tag = "Ingredient",
+    params(
+        QueryData
+    ),
+    responses(
+        (
+            status = 200,
+            description = "The query was successfully executed",
+            body = [Ingredient]
+        ),
+        (
+            status = 400,
+            description = "Error found in the given query",
+        ),
+    )
+)]
 #[get("/ingredient")]
 pub async fn get_ingredient(
     pool: web::Data<MySqlPool>,

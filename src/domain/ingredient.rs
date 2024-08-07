@@ -2,6 +2,7 @@ use anyhow::bail;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::convert::{From, Into};
+use utoipa::ToSchema;
 
 /// This value is set in the DB's schema definition (VARCHAR(40)).
 const MAX_NAME_LENGTH: usize = 40;
@@ -9,7 +10,7 @@ const MAX_NAME_LENGTH: usize = 40;
 const MAX_DESC_LENGTH: usize = 255;
 
 /// Types of ingredients of teh `Cocktail` data base.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, ToSchema)]
 pub enum IngCategory {
     /// Spirit ingredients, such as rum, liquors and so.
     Spirit,
@@ -31,7 +32,7 @@ pub enum IngCategory {
 /// This object only represents the ingredients as a model for being included in
 /// individual recipes. Hence no information related to quantities or any other information
 /// that joins an ingredient with a recipe  is included as an attribute of this object.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct Ingredient {
     name: String,
     category: IngCategory,

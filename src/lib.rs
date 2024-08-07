@@ -1,19 +1,21 @@
 //! La Coctelera library.
 
+use utoipa::OpenApi;
+
 // Re-export of the domain objects.
 pub use domain::{IngCategory, Ingredient};
 
 pub mod configuration;
 pub mod startup;
 pub mod routes {
-    mod health;
+    pub mod health;
     pub use health::echo;
 
     pub mod ingredient {
-        mod get;
-        mod post;
+        pub mod get;
+        pub mod post;
 
-        pub use get::get_ingredient;
+        pub use get::{get_ingredient, QueryData};
         pub use post::add_ingredient;
     }
 }
@@ -23,3 +25,24 @@ pub mod domain {
 
     pub use ingredient::{IngCategory, Ingredient};
 }
+
+/// Main [OpenApi] `Struct`. See [the official docs][docs].
+/// [docs]: https://docs.rs/utoipa/latest/utoipa/derive.OpenApi.html
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        routes::ingredient::get::get_ingredient
+    ),
+    components(
+        schemas(Ingredient, IngCategory)
+    ),
+    tags(
+        (name = "Ingredient", description = "Endpoints related to recipe's ingredients.")
+    ),
+    info(
+        title = "La Coctelera API",
+        description = "## A REST API for La Coctelera backend service.",
+        contact(name = "Felipe Torres González", email = "admin@nubecita.eu")
+    )
+)]
+pub struct ApiDoc;
