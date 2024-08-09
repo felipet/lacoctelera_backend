@@ -54,7 +54,9 @@ pub async fn get_ingredient(
         Err(_) => Vec::new(),
     };
 
-    HttpResponse::Ok().json(ingredients)
+    HttpResponse::Ok()
+        .append_header(("Access-Control-Allow-Origin", "*"))
+        .json(ingredients)
 }
 
 async fn check_ingredient(

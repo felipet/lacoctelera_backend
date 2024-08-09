@@ -50,7 +50,9 @@ pub async fn add_ingredient(
     };
 
     match insert_ingredient(&pool, ingredient).await {
-        Ok(_) => HttpResponse::Ok().finish(),
+        Ok(_) => HttpResponse::Ok()
+            .append_header(("Access-Control-Allow-Origin", "*"))
+            .finish(),
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
 }
