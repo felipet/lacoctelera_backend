@@ -15,7 +15,7 @@ async fn seed_ingredients() -> FixtureResult {
     let test_ingredients = Vec::from([
         Ingredient::parse("Vodka", "spirit", Some("Regular Vodka 40%")).unwrap(),
         Ingredient::parse("White Rum", "spirit", Some("Any white Rum")).unwrap(),
-        Ingredient::parse("Lime Super Juice", "juice", None).unwrap(),
+        Ingredient::parse("Lime Super Juice", "other", None).unwrap(),
         Ingredient::parse("Agave Sirup", "other", None).unwrap(),
         Ingredient::parse("Soda water", "soft_drink", None).unwrap(),
         Ingredient::parse(

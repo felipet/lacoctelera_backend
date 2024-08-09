@@ -17,7 +17,7 @@ pub struct QueryData {
     pub name: String,
 }
 
-/// GET handler of the API's `/ingredient` endpoint.
+/// GET for the API's /ingredient endpoint.
 #[utoipa::path(
     get,
     path = "/ingredient",

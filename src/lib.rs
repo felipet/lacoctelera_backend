@@ -1,5 +1,6 @@
 //! La Coctelera library.
 
+use routes::ingredient::FormData;
 use utoipa::OpenApi;
 
 // Re-export of the domain objects.
@@ -16,7 +17,7 @@ pub mod routes {
         pub mod post;
 
         pub use get::{get_ingredient, QueryData};
-        pub use post::add_ingredient;
+        pub use post::{add_ingredient, FormData};
     }
 }
 
@@ -31,10 +32,11 @@ pub mod domain {
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        routes::ingredient::get::get_ingredient
+        routes::ingredient::get::get_ingredient,
+        routes::ingredient::post::add_ingredient
     ),
     components(
-        schemas(Ingredient, IngCategory)
+        schemas(Ingredient, IngCategory, FormData)
     ),
     tags(
         (name = "Ingredient", description = "Endpoints related to recipe's ingredients.")

@@ -3,7 +3,7 @@
 use actix_web::rt::spawn;
 use lacoctelera::{
     configuration::{DataBaseSettings, Settings},
-    routes::ingredient::QueryData,
+    routes::ingredient::{FormData, QueryData},
     startup::Application,
 };
 use sqlx::{Connection, Executor, MySqlConnection, MySqlPool};
@@ -31,6 +31,16 @@ impl TestApp {
             .send()
             .await
             .expect("Failed to execute get_ingredient request.")
+    }
+
+    pub async fn post_ingredient(&self, body: &FormData) -> reqwest::Response {
+        self.api_client
+            .post(&format!("{}/ingredient", &self.address))
+            .json(body)
+            .header("Content-type", "application/json")
+            .send()
+            .await
+            .expect("Failed to execute post_ingredient request.")
     }
 }
 

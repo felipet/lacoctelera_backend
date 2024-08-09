@@ -2,7 +2,7 @@ use anyhow::bail;
 use core::fmt;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::convert::{From, Into};
+use std::convert::{Into, TryFrom};
 use utoipa::ToSchema;
 
 /// This value is set in the DB's schema definition (VARCHAR(40)).
@@ -18,6 +18,7 @@ pub enum IngCategory {
     /// Bitter ingredients, such as Angostura.
     Bitter,
     /// Soft-drink ingredients, such as soda water, Fanta, Coke, etc.
+    #[serde(alias = "soft_drink")]
     SoftDrink,
     /// Garnish ingredients, such a lemon's peel.
     Garnish,
@@ -70,7 +71,7 @@ impl Ingredient {
             Err(e) => return Err(e),
         };
 
-        let category = category.into();
+        let category = category.try_into()?;
 
         let desc = match desc {
             Some(desc) => match Ingredient::check_desc(desc) {
@@ -205,20 +206,25 @@ impl PartialEq for Ingredient {
     }
 }
 
-impl From<String> for IngCategory {
-    fn from(value: String) -> Self {
-        value.as_str().into()
+impl TryFrom<String> for IngCategory {
+    type Error = anyhow::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.as_str().try_into()
     }
 }
 
-impl From<&str> for IngCategory {
-    fn from(value: &str) -> Self {
+impl TryFrom<&str> for IngCategory {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "Spirit" | "spirit" => IngCategory::Spirit,
-            "Bitter" | "bitter" => IngCategory::Bitter,
-            "SofDrink" | "softdrink" => IngCategory::SoftDrink,
-            "Garnish" | "garnish" => IngCategory::Garnish,
-            _ => IngCategory::Other,
+            "Spirit" | "spirit" => Ok(IngCategory::Spirit),
+            "Bitter" | "bitter" => Ok(IngCategory::Bitter),
+            "SofDrink" | "softdrink" | "soft_drink" => Ok(IngCategory::SoftDrink),
+            "Garnish" | "garnish" => Ok(IngCategory::Garnish),
+            "Other" | "other" => Ok(IngCategory::Other),
+            _ => bail!("Invalid ingredient category."),
         }
     }
 }
@@ -234,7 +240,7 @@ impl IngCategory {
         match self {
             IngCategory::Bitter => "bitter",
             IngCategory::Garnish => "garnish",
-            IngCategory::SoftDrink => "softdrink",
+            IngCategory::SoftDrink => "soft_drink",
             IngCategory::Spirit => "spirit",
             IngCategory::Other => "other",
         }

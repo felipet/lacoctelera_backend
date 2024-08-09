@@ -1,41 +1,64 @@
 use crate::domain::Ingredient;
 use actix_web::{post, web, HttpResponse};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::MySqlPool;
+use utoipa::ToSchema;
 
-#[derive(Deserialize, Debug)]
-struct FormData {
-    name: String,
-    category: String,
-    desc: Option<String>,
+#[derive(Serialize, Deserialize, Debug, ToSchema)]
+pub struct FormData {
+    pub name: String,
+    pub category: String,
+    pub desc: Option<String>,
 }
 
+/// POST for the API's /ingredient endpoint.
+#[utoipa::path(
+    post,
+    path = "/ingredient",
+    tag = "Ingredient",
+    request_body(
+        content = FormData, description = "The data to register a new Ingredient into the DB",
+        example = json!({"name": "vodka", "category": "spirit"})
+    ),
+    responses(
+        (
+            status = 200,
+            description = "The new ingredient was inserted into the DB successfully"
+        ),
+        (
+            status = 400,
+            description = "Format error found in the given JSON",
+        ),
+        (
+            status = 500,
+            description = "Broken link to the DB server",
+        )
+    )
+)]
 #[post("/ingredient")]
 pub async fn add_ingredient(
     ingredient: web::Json<FormData>,
     pool: web::Data<MySqlPool>,
 ) -> HttpResponse {
-    let ingredient = Ingredient::parse(
+    let ingredient = match Ingredient::parse(
         &ingredient.name,
         ingredient.category.as_ref(),
         ingredient.desc.as_deref(),
-    )
-    .expect(&format!(
-        "Failed to parse an Ingredient from the Form: {:#?}",
-        ingredient
-    ));
+    ) {
+        Ok(ingredient) => ingredient,
+        Err(e) => return HttpResponse::BadRequest().body(e.to_string()),
+    };
 
-    insert_ingredient(&pool, ingredient)
-        .await
-        .expect("Failed to insert ingredient");
-
-    HttpResponse::Ok().finish()
+    match insert_ingredient(&pool, ingredient).await {
+        Ok(_) => HttpResponse::Ok().finish(),
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    }
 }
 
 async fn insert_ingredient(pool: &MySqlPool, ingredient: Ingredient) -> Result<(), anyhow::Error> {
     sqlx::query!(
         r#"
-        INSERT INTO test_cocktail.Ingredient (name, category, `desc`) VALUES
+        INSERT INTO Ingredient (name, category, `desc`) VALUES
         (?, ?, ?)
         "#,
         ingredient.name(),
