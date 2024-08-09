@@ -67,7 +67,7 @@ use std::time::Duration;
 const CONF_DIR: &str = "config";
 
 /// Top level `struct` for the configuration.
-#[derive(serde::Deserialize, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Settings {
     pub application: ApplicationSettings,
     /// DB Settings.
@@ -75,7 +75,7 @@ pub struct Settings {
 }
 
 /// Application's settings.
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct ApplicationSettings {
     /// Listening port for the application.
     #[serde(deserialize_with = "deserialize_number_from_string")]
@@ -89,7 +89,7 @@ pub struct ApplicationSettings {
 }
 
 /// Data Base connection settings.
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct DataBaseSettings {
     /// Host address for the DB server.
     pub host: String,
@@ -151,8 +151,17 @@ impl DataBaseSettings {
         Duration::from_secs(self.idle_timeout_sec as u64)
     }
 
-    /// Build a `MySqlConnection` using the given settings.
-    pub fn build_db_conn(&self) -> MySqlConnectOptions {
+    /// Build a connection to the MariaDB server without using a DB name.
+    ///
+    /// # Description
+    ///
+    /// The following settings will be applied:
+    /// - [DataBaseSettings::host]
+    /// - [DataBaseSettings::username]
+    /// - [DataBaseSettings::password]
+    /// - [DataBaseSettings::port]
+    /// - [DataBaseSettings::require_ssl]
+    pub fn build_db_conn_without_db(&self) -> MySqlConnectOptions {
         MySqlConnectOptions::new()
             .host(&self.host)
             .username(&self.username)
@@ -163,5 +172,15 @@ impl DataBaseSettings {
             } else {
                 MySqlSslMode::Preferred
             })
+    }
+
+    /// Build a connection to the MariaDB server without using a DB name.
+    ///
+    /// # Description
+    ///
+    /// The following settings will be applied plus the ones from [DataBaseSettings::build_db_conn_without_db]:
+    /// - [DataBaseSettings::db_name]
+    pub fn build_db_conn_with_db(&self) -> MySqlConnectOptions {
+        self.build_db_conn_without_db().database(&self.db_name)
     }
 }

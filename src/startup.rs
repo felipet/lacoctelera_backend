@@ -11,6 +11,7 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 pub struct Application {
+    port: u16,
     server: Server,
 }
 
@@ -26,6 +27,7 @@ impl Application {
             configuration.application.host, configuration.application.port
         );
         let listener = TcpListener::bind(address)?;
+        let port = listener.local_addr().unwrap().port();
 
         let server = run(
             listener,
@@ -34,11 +36,15 @@ impl Application {
         )
         .await?;
 
-        Ok(Self { server })
+        Ok(Self { port, server })
     }
 
     pub async fn run_until_stopped(self) -> Result<(), std::io::Error> {
         self.server.await
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
     }
 }
 
@@ -69,6 +75,6 @@ pub async fn get_connection_pool(
     MySqlPoolOptions::new()
         .max_connections(configuration.max_connections as u32)
         .idle_timeout(configuration.idle_timeout())
-        .connect_with(configuration.build_db_conn())
+        .connect_with(configuration.build_db_conn_with_db())
         .await
 }

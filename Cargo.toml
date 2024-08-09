@@ -10,7 +10,6 @@ actix-web = "4"
 anyhow = "1.0.86"
 config = { version = "0.14.0", features = ["toml", "serde_json"], default-features = false }
 regex = "1.10.5"
-rstest = { version = "0.21.0", default-features = false }
 secrecy = { version = "0.8.0", features = ["serde"] }
 serde = { version = "1.0.204", features = ["derive"] }
 serde-aux = "4.5.0"
@@ -19,3 +18,10 @@ serde_urlencoded = "0.7"
 sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio-rustls", "macros", "mysql", "chrono", "migrate"] }
 utoipa = { version = "4.2.3", features = ["actix_extras"] }
 utoipa-swagger-ui = { version = "5.0.0", features = ["actix-web"] }
+
+
+
+[dev-dependencies]
+uuid = { version = "1.10.0", features = ["v4", "serde"] }
+reqwest = { version = "0.12.5", default-features = false, features = ["rustls-tls", "json"] }
+rstest = { version = "0.21.0", default-features = false}

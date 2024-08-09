@@ -62,7 +62,7 @@ async fn check_ingredient(
     ingredient: Ingredient,
 ) -> Result<Vec<Ingredient>, anyhow::Error> {
     let rows = sqlx::query!(
-        r#"SELECT `id`, `name`, `category`, `desc` FROM test_cocktail.Ingredient i WHERE i.name like ?"#,
+        r#"SELECT `id`, `name`, `category`, `desc` FROM Ingredient i WHERE i.name like ?"#,
         format!("%{}%", ingredient.name()),
     )
     .fetch_all(pool)

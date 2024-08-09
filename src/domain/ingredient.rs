@@ -1,4 +1,5 @@
 use anyhow::bail;
+use core::fmt;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::convert::{From, Into};
@@ -10,7 +11,7 @@ const MAX_NAME_LENGTH: usize = 40;
 const MAX_DESC_LENGTH: usize = 255;
 
 /// Types of ingredients of teh `Cocktail` data base.
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, ToSchema)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, ToSchema)]
 pub enum IngCategory {
     /// Spirit ingredients, such as rum, liquors and so.
     Spirit,
@@ -198,6 +199,12 @@ impl Ingredient {
     }
 }
 
+impl PartialEq for Ingredient {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.category == other.category && self.desc == other.desc
+    }
+}
+
 impl From<String> for IngCategory {
     fn from(value: String) -> Self {
         value.as_str().into()
@@ -213,6 +220,12 @@ impl From<&str> for IngCategory {
             "Garnish" | "garnish" => IngCategory::Garnish,
             _ => IngCategory::Other,
         }
+    }
+}
+
+impl fmt::Display for IngCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_str())
     }
 }
 
