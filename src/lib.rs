@@ -14,9 +14,11 @@ pub mod routes {
 
     pub mod ingredient {
         pub mod get;
+        pub mod options;
         pub mod post;
 
         pub use get::{get_ingredient, QueryData};
+        pub use options::options_ingredient;
         pub use post::{add_ingredient, FormData};
     }
 }
