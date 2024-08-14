@@ -17,6 +17,8 @@ serde_derive = "1.0.204"
 serde_json = "1.0.122"
 serde_urlencoded = "0.7"
 sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio-rustls", "macros", "mysql", "chrono", "migrate"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["std"] }
 utoipa = { version = "4.2.3", features = ["actix_extras"] }
 utoipa-swagger-ui = { version = "5.0.0", features = ["actix-web"] }
 
