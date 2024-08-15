@@ -14,9 +14,11 @@ pub mod routes {
 
     pub mod ingredient {
         pub mod get;
+        pub mod options;
         pub mod post;
 
         pub use get::{get_ingredient, QueryData};
+        pub use options::options_ingredient;
         pub use post::{add_ingredient, FormData};
     }
 }
@@ -33,7 +35,8 @@ pub mod domain {
 #[openapi(
     paths(
         routes::ingredient::get::get_ingredient,
-        routes::ingredient::post::add_ingredient
+        routes::ingredient::post::add_ingredient,
+        routes::ingredient::options::options_ingredient,
     ),
     components(
         schemas(Ingredient, IngCategory, FormData)

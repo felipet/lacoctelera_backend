@@ -60,6 +60,7 @@ pub async fn run(
             .service(routes::echo)
             .service(routes::ingredient::get_ingredient)
             .service(routes::ingredient::add_ingredient)
+            .service(routes::ingredient::options_ingredient)
             .service(SwaggerUi::new("/{_:.*}").url("/api-docs/openapi.json", ApiDoc::openapi()))
             .app_data(db_pool.clone())
     })
