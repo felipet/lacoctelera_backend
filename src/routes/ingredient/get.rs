@@ -2,7 +2,7 @@ use crate::domain::Ingredient;
 use actix_web::{get, web, HttpResponse, Responder, Result};
 use serde::Deserialize;
 use sqlx::MySqlPool;
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, info, instrument};
 use utoipa::IntoParams;
 
 /// `Struct` QueryData models the expected fields for a query string.
@@ -65,7 +65,7 @@ pub async fn get_ingredient(
     // Issue a query to the DB to search for ingredients using the given name.
     let ingredients = match check_ingredient(&pool, query_ingredient).await {
         Ok(ingredients) => {
-            if ingredients.len() > 0 {
+            if !ingredients.is_empty() {
                 let mut ing_list = String::new();
                 ingredients
                     .iter()
