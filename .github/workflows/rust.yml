@@ -1,0 +1,49 @@
+name: Rust CI Flow
+
+on:
+  push:
+    branches: [ "main", "devel" ]
+  pull_request:
+    branches: [ "main", "devel" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - id: toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo
+          key: debug-${{ runner.os }}
+          restore-keys: |
+            debug-${{runner.os}}
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt clippy
+      - name: Checking formatting
+        run: cargo fmt --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - id: toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./target
+            ~/.cargo
+          key: debug-${{ runner.os }}
+          restore-keys: |
+            debug-${{ runner.os }}
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt clippy
+      - name: Linting
+        run: cargo clippy -- -D warnings
