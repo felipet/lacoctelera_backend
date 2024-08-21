@@ -8,6 +8,7 @@ pub use domain::{IngCategory, Ingredient};
 
 pub mod configuration;
 pub mod startup;
+pub mod telemetry;
 pub mod routes {
     pub mod health;
     pub use health::echo;

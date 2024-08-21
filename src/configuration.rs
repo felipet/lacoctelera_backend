@@ -62,6 +62,7 @@ use serde_derive::Deserialize;
 use sqlx::mysql::{MySqlConnectOptions, MySqlSslMode};
 use std::env;
 use std::time::Duration;
+use tracing::level_filters::LevelFilter;
 
 /// Name of the directory in which configuration files will be stored.
 const CONF_DIR: &str = "config";
@@ -84,8 +85,8 @@ pub struct ApplicationSettings {
     pub host: String,
     /// Base URL for accessing the application through the network.
     pub base_url: String,
-    /// See [tracing::Level](https://docs.rs/tracing/0.1.40/tracing/struct.Level.html).
-    pub tracing_level: String,
+    /// Log settings.
+    pub log_settings: LogSettings,
 }
 
 /// Data Base connection settings.
@@ -110,6 +111,39 @@ pub struct DataBaseSettings {
     pub idle_timeout_sec: u16,
     /// Force using SSL for the connection to the DB. False sets the connection to `Preferred` mode.
     pub require_ssl: bool,
+}
+
+/// Log related settings.
+///
+/// # Description
+///
+/// This application outputs logs to a file by default. The file's name and path is
+/// set via [Log::log_output_file]. Output messages are append to the file if it exists
+/// previously. Use **logrotate** or any other application to avoid ending with an
+/// enormous log file.
+///
+/// Aside from that file, the application allows to output log messages to _stdout_
+/// as well, useful for debugging sessions. This feature is enabled via
+/// [Log::enable_console_log].
+///
+/// Another feature can be enabled to ease reading log messages by humans:
+/// [Log::human_readable_log]. That option only applies to the console log messages.
+///
+/// Finally, the severity of the log messages to the console (when enabled) is also
+/// configurable, thus it is allowed to set different severity levels for the regular
+/// file log and the console log. This might be useful to avoid cluttering the console
+/// output with too much information that could be read from the logfile.
+#[derive(Clone, Debug, Deserialize)]
+pub struct LogSettings {
+    /// See [tracing::Level](https://docs.rs/tracing/0.1.40/tracing/struct.Level.html).
+    /// Accepted values are specified at [ApplicationSettings::get_verbosity_level].
+    pub tracing_level: String,
+    /// Output logs to a file. The value is the name of the output file.
+    pub log_output_file: String,
+    /// Enable console log output.
+    pub enable_console_log: Option<bool>,
+    /// Console verbosity.
+    pub console_tracing_level: Option<String>,
 }
 
 impl Settings {
@@ -182,5 +216,56 @@ impl DataBaseSettings {
     /// - [DataBaseSettings::db_name]
     pub fn build_db_conn_with_db(&self) -> MySqlConnectOptions {
         self.build_db_conn_without_db().database(&self.db_name)
+    }
+}
+
+impl LogSettings {
+    /// Get the chosen verbosity level as a [LevelFilter] object.
+    ///
+    /// # Description
+    ///
+    /// Translate the tracing level that is given via a configuration file into a
+    /// [Level] object. Such object can be passed straight to a `Subscriber` to
+    /// specify a filter for the log messages.
+    ///
+    /// Accepted values:
+    /// - `debug` or `dbg` to set the verbiosity to `DEBUG`.
+    /// - `info` to set the verbosity to `INFO`.
+    /// - `error` or `err` to set the verbosity to `ERROR`.
+    /// - `trace` to set the verbosity to `TRACE`.
+    /// - `warn` or any other string to set the verbosity to `WARN`.
+    pub fn get_verbosity_level(&self) -> LevelFilter {
+        LogSettings::verbosity(&self.tracing_level)
+    }
+
+    /// Get the chosen verbosity level for the console output as a [LevelFilter] object.
+    ///
+    /// # Description
+    ///
+    /// The tracing level for the console is not mandatory, thus it might be not present
+    /// in the configuration file passed to the application. When no value was set,
+    /// a severity level [LevelFilter::WARN] is returned.
+    pub fn get_console_tracing_level(&self) -> LevelFilter {
+        if let Some(level) = &self.console_tracing_level {
+            LogSettings::verbosity(level)
+        } else {
+            LevelFilter::WARN
+        }
+    }
+
+    /// Return if the console log was set via configuration file.
+    pub fn console_log_enabled(&self) -> bool {
+        self.enable_console_log.unwrap_or(false)
+    }
+
+    /// Translate a string into a [LevelFilter] or return a [LevelFilter::WARN] by default.
+    fn verbosity(level: &str) -> LevelFilter {
+        match level {
+            "debug" | "dbg" => LevelFilter::DEBUG,
+            "info" => LevelFilter::INFO,
+            "error" | "err" => LevelFilter::ERROR,
+            "trace" => LevelFilter::TRACE,
+            _ => LevelFilter::WARN,
+        }
     }
 }

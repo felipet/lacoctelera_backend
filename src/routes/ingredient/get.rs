@@ -2,6 +2,7 @@ use crate::domain::Ingredient;
 use actix_web::{get, web, HttpResponse, Responder, Result};
 use serde::Deserialize;
 use sqlx::MySqlPool;
+use tracing::{debug, info, instrument};
 use utoipa::IntoParams;
 
 /// `Struct` QueryData models the expected fields for a query string.
@@ -37,6 +38,13 @@ pub struct QueryData {
         ),
     )
 )]
+#[instrument(
+    target = "lacoctelera::ingredient_get",
+    skip(pool, req),
+    fields(
+        ingredient_name = %req.name,
+    )
+)]
 #[get("/ingredient")]
 pub async fn get_ingredient(
     pool: web::Data<MySqlPool>,
@@ -44,13 +52,32 @@ pub async fn get_ingredient(
 ) -> impl Responder {
     // First, validate the given form as a correct name for the instantiation of an Ingredient.
     let query_ingredient = match Ingredient::parse(&req.name, "other", None) {
-        Ok(ingredient) => ingredient,
+        Ok(ingredient) => {
+            info!(
+                "Received search request for an ingredient identified by: '{}'",
+                ingredient.name()
+            );
+            ingredient
+        }
         Err(e) => return HttpResponse::BadRequest().body(format!("{}", e)),
     };
 
     // Issue a query to the DB to search for ingredients using the given name.
     let ingredients = match check_ingredient(&pool, query_ingredient).await {
-        Ok(ingredients) => ingredients,
+        Ok(ingredients) => {
+            if !ingredients.is_empty() {
+                let mut ing_list = String::new();
+                ingredients
+                    .iter()
+                    .for_each(|i| ing_list.push_str(&format!("{{ {:#?} }},", i)));
+                info!("Ingredients found: {}", ingredients.len());
+                debug!("Ingredients found: {:#?}.", ing_list);
+            } else {
+                info!("No ingredients found.");
+            }
+
+            ingredients
+        }
         Err(_) => Vec::new(),
     };
 
@@ -59,6 +86,7 @@ pub async fn get_ingredient(
         .json(ingredients)
 }
 
+#[instrument(skip(pool, ingredient))]
 async fn check_ingredient(
     pool: &MySqlPool,
     ingredient: Ingredient,

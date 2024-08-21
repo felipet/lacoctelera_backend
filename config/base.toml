@@ -4,10 +4,13 @@
 # following variables.
 
 [application]
-tracing_level = "info"
 port = "9090"
 host = "127.0.0.1"
 base_url = "http://127.0.0.1"
+
+[application.log_settings]
+tracing_level = "info"
+log_output_file = "lacoctelera_log"
 
 # DB server
 [database]
