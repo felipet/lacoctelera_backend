@@ -7,6 +7,7 @@ use crate::{
 use actix_web::{dev::Server, web, App, HttpServer};
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool};
 use std::net::TcpListener;
+use tracing_actix_web::TracingLogger;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -57,6 +58,7 @@ pub async fn run(
 
     let server = HttpServer::new(move || {
         App::new()
+            .wrap(TracingLogger::default())
             .service(routes::echo)
             .service(routes::ingredient::get_ingredient)
             .service(routes::ingredient::add_ingredient)

@@ -34,7 +34,7 @@ pub enum IngCategory {
 /// This object only represents the ingredients as a model for being included in
 /// individual recipes. Hence no information related to quantities or any other information
 /// that joins an ingredient with a recipe  is included as an attribute of this object.
-#[derive(Serialize, Deserialize, Debug, ToSchema)]
+#[derive(Serialize, Deserialize, ToSchema)]
 pub struct Ingredient {
     name: String,
     category: IngCategory,
@@ -244,6 +244,18 @@ impl IngCategory {
             IngCategory::Spirit => "spirit",
             IngCategory::Other => "other",
         }
+    }
+}
+
+impl fmt::Debug for Ingredient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "'name': '{}', 'category': '{}', 'desc': '{}'",
+            self.name,
+            self.category,
+            self.desc.as_deref().unwrap_or("")
+        )
     }
 }
 #[cfg(test)]

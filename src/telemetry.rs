@@ -26,8 +26,11 @@ pub fn configure_tracing(conf: &LogSettings) {
     // Optional layer: console output.
     if conf.console_log_enabled() {
         let layer = fmt::layer()
-            .with_target(false)
             .pretty()
+            // Disable some options enabled by pretty that are not useful
+            .with_target(false)
+            .with_file(false)
+            .with_line_number(false)
             .with_filter(conf.get_console_tracing_level())
             .boxed();
 
