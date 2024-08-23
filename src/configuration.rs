@@ -32,7 +32,7 @@
 //!
 //! Variables defined within configuration files can be overridden using `LACOCTELERA`
 //! prefix. Variables need to be scoped in the same way as they are found in the configuration
-//! files. For example, to override [ApplicationSettings::tracing_level]:
+//! files. For example, to override [LogSettings::tracing_level]:
 //!
 //! ```bash
 //! $ LACOCTELERA__APPLICATION__TRACING_LEVEL=trace ./lacoctelera
@@ -118,16 +118,13 @@ pub struct DataBaseSettings {
 /// # Description
 ///
 /// This application outputs logs to a file by default. The file's name and path is
-/// set via [Log::log_output_file]. Output messages are append to the file if it exists
+/// set via [LogSettings::log_output_file]. Output messages are append to the file if it exists
 /// previously. Use **logrotate** or any other application to avoid ending with an
 /// enormous log file.
 ///
 /// Aside from that file, the application allows to output log messages to _stdout_
 /// as well, useful for debugging sessions. This feature is enabled via
-/// [Log::enable_console_log].
-///
-/// Another feature can be enabled to ease reading log messages by humans:
-/// [Log::human_readable_log]. That option only applies to the console log messages.
+/// [LogSettings::enable_console_log].
 ///
 /// Finally, the severity of the log messages to the console (when enabled) is also
 /// configurable, thus it is allowed to set different severity levels for the regular
@@ -136,7 +133,7 @@ pub struct DataBaseSettings {
 #[derive(Clone, Debug, Deserialize)]
 pub struct LogSettings {
     /// See [tracing::Level](https://docs.rs/tracing/0.1.40/tracing/struct.Level.html).
-    /// Accepted values are specified at [ApplicationSettings::get_verbosity_level].
+    /// Accepted values are specified at [LogSettings::get_verbosity_level].
     pub tracing_level: String,
     /// Output logs to a file. The value is the name of the output file.
     pub log_output_file: String,
@@ -225,7 +222,7 @@ impl LogSettings {
     /// # Description
     ///
     /// Translate the tracing level that is given via a configuration file into a
-    /// [Level] object. Such object can be passed straight to a `Subscriber` to
+    /// [LevelFilter] object. Such object can be passed straight to a `Subscriber` to
     /// specify a filter for the log messages.
     ///
     /// Accepted values:

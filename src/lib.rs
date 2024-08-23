@@ -30,8 +30,7 @@ pub mod domain {
     pub use ingredient::{IngCategory, Ingredient};
 }
 
-/// Main [OpenApi] `Struct`. See [the official docs][docs].
-/// [docs]: https://docs.rs/utoipa/latest/utoipa/derive.OpenApi.html
+/// Main [OpenApi] `Struct`. See [the official docs](https://docs.rs/utoipa/latest/utoipa/derive.OpenApi.html).
 #[derive(OpenApi)]
 #[openapi(
     paths(
