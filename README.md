@@ -8,6 +8,8 @@
   <p>
 
 [![License](https://img.shields.io/github/license/felipet/lacoctelera_backend?style=flat-square)](https://github.com/felipet/lacoctelera_backend/blob/main/LICENSE)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/felipet/lacoctelera_backend/rust.yml?style=flat-square&label=CI%20status)
+![Codecov](https://img.shields.io/codecov/c/github/felipet/lacoctelera_backend?token=82QNW2EJN1&style=flat-square)
 
   </p>
 </div>
@@ -18,7 +20,7 @@
 > This service is in an early stage of development.
 
 This repository includes the backend side of La Coctelera web service. The frontend side of
-the service shall be found [here][lacoctelera_frontend]. The service's backend is developed in Rust
+the service is found [here][lacoctelera_frontend]. The service's backend is developed in Rust
 using [Actix-Web][actix] as web framework.
 
 # Build & Deploy
