@@ -1,28 +1,21 @@
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello world from La Coctelera!")
-}
-
-#[post("/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    HttpResponse::Ok().body(req_body)
-}
-
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
-}
+use lacoctelera::{configuration::Settings, startup::Application, telemetry::configure_tracing};
+use tracing::{debug, info};
 
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| {
-        App::new()
-            .service(hello)
-            .service(echo)
-            .route("/hey", web::get().to(manual_hello))
-    })
-    .bind(("127.0.0.1", 8080))?
-    .run()
-    .await
+async fn main() -> Result<(), anyhow::Error> {
+    let configuration = Settings::new().expect("Failed to parse configuration files.");
+
+    // Set up the tracing sub-system.
+    configure_tracing(&configuration.application.log_settings);
+
+    info!(
+        "La Coctelera API started @ {}",
+        configuration.application.port
+    );
+
+    let app = Application::build(configuration).await?;
+    debug!("Application built, serving requests");
+    app.run_until_stopped().await?;
+
+    Ok(())
 }

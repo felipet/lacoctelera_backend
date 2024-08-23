@@ -1,0 +1,13 @@
+# Development configuration file.
+# -------------------------------
+# These settings should only be used for development scenarios.
+
+[application]
+    tracing_level = "debug"
+    host = "127.0.0.1"
+    base_url = "http://127.0.0.1"
+[database]
+    username = "root"
+    password = "password"
+    db_name = "test_cocktail"
+    require_ssl = false
