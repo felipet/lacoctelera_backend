@@ -36,7 +36,7 @@ jobs:
           key: sqlx-${{ env.SQLX_VERSION }}
       - name: Linting
         run: cargo clippy --no-deps -- -D warnings
-        
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -69,10 +69,9 @@ jobs:
       - name: Tests
         run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail" cargo test
       - name: Generate code coverage
-        run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail" cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
+        run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail" cargo tarpaulin --verbose --all-features --timeout 120 --out xml
       - name: Upload coverage to codecov.io
         uses: codecov/codecov-action@v4.5.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
-
