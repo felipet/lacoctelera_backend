@@ -2,7 +2,8 @@
 
 use crate::{
     configuration::{DataBaseSettings, Settings},
-    routes, ApiDoc,
+    routes::{self, health},
+    ApiDoc,
 };
 use actix_web::{dev::Server, web, App, HttpServer};
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool};
@@ -60,6 +61,9 @@ pub async fn run(
         App::new()
             .wrap(TracingLogger::default())
             .service(routes::echo)
+            .service(health::options_echo)
+            .service(health::health_check)
+            .service(health::options_health)
             .service(routes::ingredient::get_ingredient)
             .service(routes::ingredient::add_ingredient)
             .service(routes::ingredient::options_ingredient)

@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 actix-web = "4"
 anyhow = "1.0.86"
+chrono = { version = "0.4.38", features = ["clock", "serde"] }
 config = { version = "0.14.0", features = ["toml", "serde_json"], default-features = false }
 regex = "1.10.5"
 secrecy = { version = "0.8.0", features = ["serde"] }
