@@ -3,7 +3,7 @@
 use names::Generator;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use thiserror::Error;
 use utoipa::ToSchema;
@@ -25,9 +25,10 @@ static RE_UUID_V4: Lazy<Regex> = Lazy::new(|| Regex::new(r"([a-fA-F0-9-]{4,12}){
 /// The constructor [Author::default] is given to generate a new author entry using a random funny name.
 ///
 /// All the fields that accept a text input are checked to avoid exceeding the maximum allowed text length.
-#[derive(Clone, Debug, Deserialize, ToSchema, Validate)]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, Validate)]
 pub struct Author {
     #[validate(custom(function = "validate_id"))]
+    #[schema(value_type = String, example = "0191e13b-5ab7-78f1-bc06-be503a6c111b")]
     id: Uuid,
     #[validate(length(min = 1), length(max = 40))]
     name: String,
@@ -53,7 +54,7 @@ fn validate_id(value: &Uuid) -> Result<(), ValidationError> {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, ToSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct SocialProfile {
     pub id: u16,
     pub provider_name: String,
@@ -166,36 +167,52 @@ pub struct AuthorBuilder {
 }
 
 impl AuthorBuilder {
-    pub fn set_id(&mut self, id: &str) {
+    pub fn set_id(mut self, id: &str) -> Self {
         self.id = Some(id.into());
+
+        self
     }
 
-    pub fn set_name(&mut self, name: &str) {
+    pub fn set_name(mut self, name: &str) -> Self {
         self.name = Some(name.into());
+
+        self
     }
 
-    pub fn set_surname(&mut self, surname: &str) {
+    pub fn set_surname(mut self, surname: &str) -> Self {
         self.surname = Some(surname.into());
+
+        self
     }
 
-    pub fn set_email(&mut self, email: &str) {
+    pub fn set_email(mut self, email: &str) -> Self {
         self.email = Some(email.into());
+
+        self
     }
 
-    pub fn set_shareable(&mut self, shareable: bool) {
+    pub fn set_shareable(mut self, shareable: bool) -> Self {
         self.shareable = shareable;
+
+        self
     }
 
-    pub fn set_description(&mut self, description: &str) {
+    pub fn set_description(mut self, description: &str) -> Self {
         self.description = Some(description.into());
+
+        self
     }
 
-    pub fn set_website(&mut self, website: &str) {
+    pub fn set_website(mut self, website: &str) -> Self {
         self.website = Some(website.into());
+
+        self
     }
 
-    pub fn set_social_profiles(&mut self, profiles: &[SocialProfile]) {
+    pub fn set_social_profiles(mut self, profiles: &[SocialProfile]) -> Self {
         self.social_profiles = Some(Vec::from(profiles));
+
+        self
     }
 
     pub fn build(self) -> Result<Author, AuthorError> {
