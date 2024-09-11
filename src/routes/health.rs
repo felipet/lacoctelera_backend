@@ -69,7 +69,7 @@ impl HealthResponse {
     pub fn example_maintenance_scheduled() -> HealthResponse {
         let ts = Local::now().checked_add_days(Days::new(1)).unwrap();
         HealthResponse {
-            server_status: ServerStatus::MaintenanceScheduled(ts.clone()),
+            server_status: ServerStatus::MaintenanceScheduled(ts),
             api_expire_time: ts,
         }
     }
@@ -229,7 +229,7 @@ pub async fn options_echo() -> impl Responder {
 #[instrument(skip(req))]
 #[get("/health")]
 pub async fn health_check(req: web::Query<AuthData>) -> impl Responder {
-    if req.api_key != "" {
+    if !req.api_key.is_empty() {
         HttpResponse::NotImplemented()
             .append_header(("Access-Control-Allow-Origin", "*"))
             .append_header(("access-control-allow-headers", "content-type"))
