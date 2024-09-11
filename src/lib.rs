@@ -32,6 +32,7 @@ pub mod routes {
 }
 
 pub mod domain {
+    pub mod author;
     mod ingredient;
 
     pub use ingredient::{IngCategory, Ingredient};
