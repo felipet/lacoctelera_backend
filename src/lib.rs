@@ -29,6 +29,21 @@ pub mod routes {
         pub use options::options_ingredient;
         pub use post::{add_ingredient, FormData};
     }
+
+    pub mod author {
+        pub mod auth;
+        pub mod delete;
+        pub mod get;
+        pub mod head;
+        pub mod options;
+        pub mod patch;
+
+        pub use delete::delete_author;
+        pub use get::get_author;
+        pub use head::head_author;
+        pub use options::options_author;
+        pub use patch::patch_author;
+    }
 }
 
 pub mod domain {
@@ -78,9 +93,14 @@ impl Modify for SecurityAddon {
         routes::health::options_echo,
         routes::health::health_check,
         routes::health::options_health,
+        routes::author::get::get_author,
+        routes::author::patch::patch_author,
+        routes::author::delete::delete_author,
+        routes::author::options::options_author,
+        routes::author::head::head_author,
     ),
     components(
-        schemas(Ingredient, IngCategory, FormData, AuthData, health::HealthResponse, health::ServerStatus)
+        schemas(Ingredient, IngCategory, FormData, AuthData, health::HealthResponse, health::ServerStatus, domain::Author, domain::SocialProfile, domain::AuthorId)
     ),
     tags(
         (name = "Ingredient", description = "Endpoints related to recipe's ingredients."),

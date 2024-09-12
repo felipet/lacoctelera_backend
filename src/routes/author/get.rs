@@ -1,22 +1,14 @@
-use crate::domain::{author::AuthorBuilder, Author};
+use crate::domain::{Author, AuthorBuilder, AuthorId};
 use actix_web::{get, web, HttpResponse, Responder};
-use core::fmt;
-use serde::{Deserialize, Serialize};
 use tracing::info;
-use utoipa::{IntoParams, ToSchema};
-use uuid::Uuid;
 
-#[derive(Clone, Debug, Serialize, Deserialize, IntoParams, ToSchema)]
-#[into_params(names("AuthorId"))]
-#[schema(value_type = String, example = "0191e13b-5ab7-78f1-bc06-be503a6c111b")]
-pub struct AuthorId(Uuid);
-
-impl fmt::Display for AuthorId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
+/// GET method for the Author endpoint.
+///
+/// # Description
+///
+/// This method retrieves an [Author] entry from the DB. If the author set the profile as non-public, only clients
+/// with an API access token will retrieve the full author's descriptor. Unauthenticated clients will get the author's
+/// name only when using this method of the endpoint.
 #[utoipa::path(
     get,
     tag = "Author",
