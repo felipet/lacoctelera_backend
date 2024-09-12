@@ -4,9 +4,10 @@ use names::Generator;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::str::FromStr;
 use thiserror::Error;
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 use validator::{Validate, ValidationError, ValidationErrors};
 
@@ -31,7 +32,7 @@ pub struct Author {
     #[schema(value_type = String, example = "0191e13b-5ab7-78f1-bc06-be503a6c111b")]
     id: Uuid,
     #[validate(length(min = 1), length(max = 40))]
-    name: String,
+    name: Option<String>,
     #[validate(length(min = 1), length(max = 40))]
     surname: Option<String>,
     #[validate(email)]
@@ -76,7 +77,7 @@ impl std::default::Default for Author {
     fn default() -> Self {
         Author {
             id: Uuid::now_v7(),
-            name: Generator::default().next().unwrap(),
+            name: Some(Generator::default().next().unwrap()),
             surname: None,
             email: None,
             shareable: false,
@@ -91,7 +92,7 @@ impl Author {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: String,
-        name: String,
+        name: Option<String>,
         surname: Option<String>,
         email: Option<String>,
         shareable: bool,
@@ -125,8 +126,8 @@ impl Author {
         &self.id
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 
     pub fn surname(&self) -> Option<&str> {
@@ -228,7 +229,7 @@ impl AuthorBuilder {
 
         Author::new(
             id,
-            name,
+            Some(name),
             self.surname,
             self.email,
             self.shareable,
@@ -236,5 +237,16 @@ impl AuthorBuilder {
             self.website,
             self.social_profiles,
         )
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, IntoParams, ToSchema)]
+#[into_params(names("AuthorId"))]
+#[schema(value_type = String, example = "0191e13b-5ab7-78f1-bc06-be503a6c111b")]
+pub struct AuthorId(Uuid);
+
+impl fmt::Display for AuthorId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

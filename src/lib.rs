@@ -35,6 +35,7 @@ pub mod domain {
     pub mod author;
     mod ingredient;
 
+    pub use author::{Author, AuthorBuilder, AuthorId, SocialProfile};
     pub use ingredient::{IngCategory, Ingredient};
 }
 
