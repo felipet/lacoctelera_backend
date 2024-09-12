@@ -4,13 +4,12 @@ use names::Generator;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::str::FromStr;
 use thiserror::Error;
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 use validator::{Validate, ValidationError, ValidationErrors};
 
+// Regex to validate an Uuid.
 static RE_UUID_V4: Lazy<Regex> = Lazy::new(|| Regex::new(r"([a-fA-F0-9-]{4,12}){5}$").unwrap());
 
 /// Object that represents an Author of the `Cocktail` data base.
@@ -20,25 +19,42 @@ static RE_UUID_V4: Lazy<Regex> = Lazy::new(|| Regex::new(r"([a-fA-F0-9-]{4,12}){
 /// Authors' main role is defining recipes in the data base, and own them until they delete them or transfer the
 /// ownership. This object is a simple descriptor that includes some personal information of the authors.
 ///
-/// Most of the attributes are optional, and authors are given the choice to share or keep private their profiles.
-/// When a profile is set as private, only the [Author::name] is shown while listing a recipe.
+/// All attributes are optional to allow using this `struct` as query object for the GET methods of the `/author`
+/// endpoint. Mandatory fields are defined in the description of each method of the endpoint.
+///
+/// Some restrictions over the `struct`'s members:
+/// - [Author::id] must contain a valid [Uuid]. Strings are parsed to [Uuid]. The expected format is a 128-bit value,
+///   formatted as a hex string in five groups. The first 4 groups are randomly generated, and the fifth comes from
+///   a timestamp. However, clients can freely generate this ID using other combinations as long as the length and basic
+///   format rules are honored.
+/// - [Author::name] and [Author::surname] shall have a minimum length of 2 and a maximum of 40 characters. These
+///   fields are allowed to repeat in the DB. Authors are identified in the DB by [Author::id]. Usernames are not
+///   required.
+/// - [Author::email] is validated against the HTML5 regex.
+/// - [Author::description] can't exceed 255 characters length.
+/// - [Author::website] must contain an url format (`http://...` or `https://...`).
+///
+/// Authors are given the choice to share or keep private their profiles. Activate [Author::shareable] to allow
+/// sharing the author's profile to the main public. Private profiles are protected from non privileged clients of the
+/// API (with no API access token): only the [Author::id] and [Author::name] is given when a unprivileged client
+/// requests the data of an author to the API.
 ///
 /// The constructor [Author::default] is given to generate a new author entry using a random funny name.
 ///
-/// All the fields that accept a text input are checked to avoid exceeding the maximum allowed text length.
-#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, Validate)]
+/// Prefer [AuthorBuilder] rather than [Author::new] to build a new [Author] instance.
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, IntoParams, Validate, PartialEq)]
 pub struct Author {
     #[validate(custom(function = "validate_id"))]
     #[schema(value_type = String, example = "0191e13b-5ab7-78f1-bc06-be503a6c111b")]
-    id: Uuid,
-    #[validate(length(min = 1), length(max = 40))]
+    id: Option<Uuid>,
+    #[validate(length(min = 2), length(max = 40))]
     name: Option<String>,
-    #[validate(length(min = 1), length(max = 40))]
+    #[validate(length(min = 2), length(max = 40))]
     surname: Option<String>,
     #[validate(email)]
     email: Option<String>,
     /// Decide whether an author profile can be shared to the public or not.
-    pub shareable: bool,
+    pub shareable: Option<bool>,
     #[validate(length(max = 255))]
     description: Option<String>,
     #[validate(url)]
@@ -46,22 +62,59 @@ pub struct Author {
     social_profiles: Option<Vec<SocialProfile>>,
 }
 
-/// Custom function to validate a String that should contain an [Uuid].
-fn validate_id(value: &Uuid) -> Result<(), ValidationError> {
-    if RE_UUID_V4.is_match(&value.to_string()) {
-        std::result::Result::Ok(())
-    } else {
-        Err(ValidationError::new("1"))
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+/// Simple Data object to describe a social network profile.
+///
+/// # Description
+///
+/// [SocialProfile] has no associated table in the DB. This is simply contained in the [Author]'s entry in the DB.
+/// A social profile is described by the social network name and the author's user name.
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, Validate, PartialEq)]
 pub struct SocialProfile {
-    pub id: u16,
+    /// Name of the social network, i.e. Instagram, X, TikTok... 40 chars max.
+    #[validate(length(max = 40))]
     pub provider_name: String,
+    /// User name registered by the author in the social network. 40 chars max.
+    #[validate(length(max = 40))]
     pub user_name: String,
 }
 
+/// Implementation of the builder pattern for the [Author] `struct`.
+///
+/// # Description
+///
+/// Use this object to partially build an [Author] object. For example:
+///
+/// ```rust
+/// use lacoctelera::domain::{Author, AuthorBuilder};
+///
+/// let auhor = AuthorBuilder::default()
+///     .set_name("Jane")
+///     .set_surname("Doe")
+///     .set_shareable(true)
+///     .build().unwrap();
+/// ```
+///
+/// [AuthorBuilder::build] shall be called after all the member initializations. This method returns a [Result] if
+/// some of the values given to the constructor don't comply with the restrictions defined to [Author]'s members.
+#[derive(Default)]
+pub struct AuthorBuilder {
+    id: Option<String>,
+    name: Option<String>,
+    surname: Option<String>,
+    email: Option<String>,
+    shareable: bool,
+    description: Option<String>,
+    website: Option<String>,
+    social_profiles: Option<Vec<SocialProfile>>,
+}
+
+/// Custom error type for the operations related to Author's data objects.
+///
+/// # Description
+///
+/// - [AuthorError::InvalidParams] is returned when a data object is built using wrong data for some of its members.
+///   This is a wrapper and contains the error messages that could have been generated by the internal logic.
+/// - [AuthorError::InvalidId] is returned when an object is built using an ID that is badly formatted.
 #[derive(Error, Debug)]
 pub enum AuthorError {
     #[error("Some params contain an invalid format.")]
@@ -73,14 +126,28 @@ pub enum AuthorError {
     InvalidId,
 }
 
+/// Custom function to validate a String that should contain an [Uuid].
+fn validate_id(value: &Uuid) -> Result<(), ValidationError> {
+    if RE_UUID_V4.is_match(&value.to_string()) {
+        std::result::Result::Ok(())
+    } else {
+        Err(ValidationError::new("1"))
+    }
+}
+
 impl std::default::Default for Author {
+    /// Default constructor for [Author].
+    ///
+    /// # Description
+    ///
+    /// This constructor builds a new [Author] whose name is randomly generated using funny names and adjectives.
     fn default() -> Self {
         Author {
-            id: Uuid::now_v7(),
+            id: Some(Uuid::now_v7()),
             name: Some(Generator::default().next().unwrap()),
             surname: None,
             email: None,
-            shareable: false,
+            shareable: Some(false),
             description: None,
             website: None,
             social_profiles: None,
@@ -89,20 +156,29 @@ impl std::default::Default for Author {
 }
 
 impl Author {
+    /// Constructor of the [Author] struct.
+    ///
+    /// # Descriptor
+    ///
+    /// All fields are optional
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        id: String,
+        id: Option<String>,
         name: Option<String>,
         surname: Option<String>,
         email: Option<String>,
-        shareable: bool,
+        shareable: Option<bool>,
         description: Option<String>,
         website: Option<String>,
-        social_profiles: Option<Vec<SocialProfile>>,
+        social_profiles: Option<&[SocialProfile]>,
     ) -> Result<Self, AuthorError> {
-        let id = match Uuid::from_str(&id) {
-            Ok(id) => id,
-            Err(_) => return Err(AuthorError::InvalidId),
+        let id = if id.is_some() {
+            match Uuid::parse_str(&id.unwrap()) {
+                Ok(id) => Some(id),
+                Err(_) => return Err(AuthorError::InvalidId),
+            }
+        } else {
+            None
         };
 
         let author = Author {
@@ -113,7 +189,7 @@ impl Author {
             shareable,
             description,
             website,
-            social_profiles,
+            social_profiles: social_profiles.map(Vec::from),
         };
 
         match author.validate() {
@@ -122,8 +198,8 @@ impl Author {
         }
     }
 
-    pub fn id(&self) -> &Uuid {
-        &self.id
+    pub fn id(&self) -> Option<String> {
+        self.id.map(|id| id.to_string())
     }
 
     pub fn name(&self) -> Option<&str> {
@@ -139,7 +215,7 @@ impl Author {
     }
 
     pub fn shareable(&self) -> bool {
-        self.shareable
+        self.shareable.unwrap_or_default()
     }
 
     pub fn description(&self) -> Option<&str> {
@@ -153,18 +229,6 @@ impl Author {
     pub fn social_profiles(&self) -> Option<&[SocialProfile]> {
         self.social_profiles.as_deref()
     }
-}
-
-#[derive(Default)]
-pub struct AuthorBuilder {
-    id: Option<String>,
-    name: Option<String>,
-    surname: Option<String>,
-    email: Option<String>,
-    shareable: bool,
-    description: Option<String>,
-    website: Option<String>,
-    social_profiles: Option<Vec<SocialProfile>>,
 }
 
 impl AuthorBuilder {
@@ -217,36 +281,135 @@ impl AuthorBuilder {
     }
 
     pub fn build(self) -> Result<Author, AuthorError> {
-        let id = match self.id.as_ref() {
-            Some(id) => id.clone(),
-            None => Uuid::now_v7().to_string(),
-        };
-
-        let name = match self.name.as_ref() {
-            Some(name) => name.clone(),
-            None => Generator::default().next().unwrap(),
-        };
-
         Author::new(
-            id,
-            Some(name),
+            self.id,
+            self.name,
             self.surname,
             self.email,
-            self.shareable,
+            Some(self.shareable),
             self.description,
             self.website,
-            self.social_profiles,
+            self.social_profiles.as_deref(),
         )
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, IntoParams, ToSchema)]
-#[into_params(names("AuthorId"))]
-#[schema(value_type = String, example = "0191e13b-5ab7-78f1-bc06-be503a6c111b")]
-pub struct AuthorId(Uuid);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+    use uuid::Uuid;
 
-impl fmt::Display for AuthorId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+    #[test]
+    fn build_author_using_builder() {
+        let author = AuthorBuilder::default().build().unwrap();
+        assert_eq!(author.id, None);
+        assert_eq!(author.name, None);
+        assert_eq!(author.surname, None);
+        assert_eq!(author.email, None);
+        assert_eq!(author.shareable, Some(false));
+        assert_eq!(author.description, None);
+        assert_eq!(author.website, None);
+        assert!(author.social_profiles.is_none());
+
+        let id = Uuid::now_v7().to_string();
+
+        let social_profiles = [
+            SocialProfile {
+                provider_name: "Facebook".into(),
+                user_name: "janedoe".into(),
+            },
+            SocialProfile {
+                provider_name: "Instragram".into(),
+                user_name: "janedoe".into(),
+            },
+        ];
+
+        let author = AuthorBuilder::default()
+            .set_id(&id)
+            .set_name("Jane")
+            .set_surname("Doe")
+            .set_email("jane_doe@mail.com")
+            .set_description("An unknown person.")
+            .set_website("http://janedoe.com")
+            .set_shareable(true)
+            .set_social_profiles(&social_profiles)
+            .build()
+            .expect("Failed to build author");
+
+        assert_eq!(author.id().unwrap(), id);
+        assert_eq!(author.name().unwrap(), "Jane");
+        assert_eq!(author.surname().unwrap(), "Doe");
+        assert_eq!(author.email().unwrap(), "jane_doe@mail.com");
+        assert_eq!(author.shareable(), true);
+        assert_eq!(author.description().unwrap(), "An unknown person.");
+        assert_eq!(author.website().unwrap(), "http://janedoe.com");
+        assert_eq!(author.social_profiles().unwrap(), social_profiles);
+    }
+
+    #[test]
+    fn build_author_using_new() {
+        let id = Uuid::now_v7().to_string();
+        let social_profiles = [
+            SocialProfile {
+                provider_name: "Facebook".into(),
+                user_name: "janedoe".into(),
+            },
+            SocialProfile {
+                provider_name: "Instragram".into(),
+                user_name: "janedoe".into(),
+            },
+        ];
+
+        let author = Author::new(
+            Some(id.clone()),
+            Some("Jane".to_string()),
+            Some("Doe".to_string()),
+            Some("jane_doe@mail.com".to_string()),
+            Some(true),
+            Some("An unknown person.".to_string()),
+            Some("http://janedoe.com".to_string()),
+            Some(&social_profiles),
+        )
+        .expect("Failed to create new instance of Author using new.");
+
+        assert_eq!(author.id().unwrap(), id);
+        assert_eq!(author.name().unwrap(), "Jane");
+        assert_eq!(author.surname().unwrap(), "Doe");
+        assert_eq!(author.email().unwrap(), "jane_doe@mail.com");
+        assert_eq!(author.shareable(), true);
+        assert_eq!(author.description().unwrap(), "An unknown person.");
+        assert_eq!(author.website().unwrap(), "http://janedoe.com");
+        assert_eq!(author.social_profiles().unwrap(), social_profiles);
+    }
+
+    #[test]
+    fn build_author_using_wrong_id() {
+        let author = AuthorBuilder::default().set_id("Wrong_ID").build();
+        assert!(author.is_err());
+        let author = AuthorBuilder::default().set_id("191919-010010-022").build();
+        assert!(author.is_err());
+    }
+
+    #[test]
+    fn build_author_using_wrong_text_length() {
+        let author = AuthorBuilder::default().set_name("J").build();
+        assert!(author.is_err());
+
+        let author = AuthorBuilder::default().set_surname("D").build();
+        assert!(author.is_err());
+
+        let author = AuthorBuilder::default().set_website("janedoe.com").build();
+        assert!(author.is_err());
+
+        let author = AuthorBuilder::default()
+            .set_email("janedoe<at>mail.com")
+            .build();
+        assert!(author.is_err());
+
+        let author = AuthorBuilder::default()
+            .set_description(&"dummy string".repeat(300))
+            .build();
+        assert!(author.is_err());
     }
 }
