@@ -54,8 +54,10 @@ pub mod routes {
 
     pub mod recipe {
         pub mod get;
+        pub mod options;
 
         pub use get::get_recipe;
+        pub use options::options_recipe;
     }
 }
 
@@ -118,6 +120,7 @@ impl Modify for SecurityAddon {
         routes::author::options::options_author,
         routes::author::head::head_author,
         routes::recipe::get::get_recipe,
+        routes::recipe::options::options_recipe,
     ),
     components(
         schemas(
