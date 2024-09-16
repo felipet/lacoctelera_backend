@@ -1,5 +1,7 @@
 //! La Coctelera library.
 
+use once_cell::sync::Lazy;
+use regex::Regex;
 use routes::{health, ingredient::FormData};
 use serde::Deserialize;
 use utoipa::{
@@ -9,9 +11,14 @@ use utoipa::{
     },
     IntoParams, Modify, OpenApi, ToSchema,
 };
+use uuid::Uuid;
+use validator::ValidationError;
 
 // Re-export of the domain objects.
 pub use domain::{IngCategory, Ingredient};
+
+// Regex to validate an Uuid.
+static RE_UUID_V4: Lazy<Regex> = Lazy::new(|| Regex::new(r"([a-fA-F0-9-]{4,12}){5}$").unwrap());
 
 pub mod configuration;
 pub mod startup;
@@ -48,10 +55,16 @@ pub mod routes {
 
 pub mod domain {
     pub mod author;
+    mod error;
     mod ingredient;
+    pub mod recipe;
+    pub mod tag;
 
-    pub use author::{Author, AuthorBuilder, AuthorId, SocialProfile};
+    pub use author::{Author, AuthorBuilder, SocialProfile};
+    pub use error::DataDomainError;
     pub use ingredient::{IngCategory, Ingredient};
+    pub use recipe::{Recipe, RecipeQuery, StarRate};
+    pub use tag::Tag;
 }
 
 /// Struct that encapsulates valid authentication methods.
@@ -100,7 +113,7 @@ impl Modify for SecurityAddon {
         routes::author::head::head_author,
     ),
     components(
-        schemas(Ingredient, IngCategory, FormData, AuthData, health::HealthResponse, health::ServerStatus, domain::Author, domain::SocialProfile, domain::AuthorId)
+        schemas(Ingredient, IngCategory, FormData, AuthData, health::HealthResponse, health::ServerStatus, domain::Author, domain::SocialProfile, domain::Tag, domain::Recipe, domain::RecipeQuery)
     ),
     tags(
         (name = "Ingredient", description = "Endpoints related to recipe's ingredients."),
@@ -127,4 +140,13 @@ pub fn datetime_object_type() -> Object {
             "2025-09-11T08:58:56.121331664+02:00",
         ))))
         .build()
+}
+
+/// Custom function to validate a String that should contain an [Uuid].
+fn validate_id(value: &Uuid) -> Result<(), ValidationError> {
+    if RE_UUID_V4.is_match(&value.to_string()) {
+        std::result::Result::Ok(())
+    } else {
+        Err(ValidationError::new("1"))
+    }
 }

@@ -34,7 +34,7 @@ pub enum IngCategory {
 /// This object only represents the ingredients as a model for being included in
 /// individual recipes. Hence no information related to quantities or any other information
 /// that joins an ingredient with a recipe  is included as an attribute of this object.
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Clone, Serialize, Deserialize, ToSchema)]
 pub struct Ingredient {
     name: String,
     category: IngCategory,

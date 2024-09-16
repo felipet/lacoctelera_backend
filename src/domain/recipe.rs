@@ -8,6 +8,7 @@
 //! includes those [Recipe]'s members that the API implement logic for. Furthermore, members are nullable, so only
 //! the aimed member needs to be populated by the client of the API.
 
+use core::fmt;
 use std::str::FromStr;
 
 use crate::{
@@ -43,9 +44,7 @@ pub struct Recipe {
     /// List of tags assigned by the internal logic.
     tags: Option<Vec<Tag>>,
     /// Recipe's category.
-    #[validate(custom(function = "validate_id"))]
-    #[schema(value_type = String, example = "0191e13b-5ab7-78f1-bc06-be503a6c111b")]
-    category_id: Uuid,
+    category_id: RecipeCategory,
     /// Recipe's rating.
     rating: StarRate,
     #[validate(length(min = 2), length(max = 400))]
@@ -82,18 +81,81 @@ pub struct RecipeQuery {
     pub name: Option<String>,
     pub tags: Option<Vec<Tag>>,
     pub rating: Option<StarRate>,
-    pub category: Option<Uuid>,
+    pub category: Option<RecipeCategory>,
 }
 
 /// Simple `enum` to represent a 5-star rating system.
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema, PartialEq)]
 pub enum StarRate {
+    #[serde(alias = "0")]
     Null = 0,
+    #[serde(alias = "1")]
     One = 1,
+    #[serde(alias = "2")]
     Two = 2,
+    #[serde(alias = "3")]
     Three = 3,
+    #[serde(alias = "4")]
     Four = 4,
+    #[serde(alias = "5")]
     Five = 5,
+}
+
+/// Categories of recipes.
+///
+/// # Description
+///
+/// Recipes are categorized using the degree of difficult of the preparation process of the recipe.
+///
+/// - Category [RecipeCategory::Easy] should include recipes that need no special equipment nor uncommon spirits.
+/// - Category [RecipeCategory::Medium] should include recipes that need basic equipment but use common spirits.
+/// - Category [RecipeCategory::Advanced] should include recipes that need specific equipment and might use uncommon
+///   spirits.
+/// - Cageory [RecipeCategory::Pro] should include advanced recipes that need complicated preparation techniques or
+///   very special equipment.
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, PartialEq)]
+pub enum RecipeCategory {
+    Easy,
+    Medium,
+    Advanced,
+    Pro,
+}
+
+impl TryFrom<&str> for RecipeCategory {
+    type Error = DataDomainError;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value.to_ascii_lowercase().as_str() {
+            "easy" => Ok(RecipeCategory::Easy),
+            "medium" => Ok(RecipeCategory::Medium),
+            "advanced" => Ok(RecipeCategory::Advanced),
+            "pro" => Ok(RecipeCategory::Pro),
+            _ => Err(DataDomainError::InvalidRecipeCategory),
+        }
+    }
+}
+
+impl Into<String> for RecipeCategory {
+    fn into(self) -> String {
+        match self {
+            RecipeCategory::Easy => "easy".into(),
+            RecipeCategory::Medium => "medium".into(),
+            RecipeCategory::Advanced => "advanced".into(),
+            RecipeCategory::Pro => "pro".into(),
+        }
+    }
+}
+
+impl fmt::Display for RecipeCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ss: String = match self {
+            RecipeCategory::Easy => "easy".into(),
+            RecipeCategory::Medium => "medium".into(),
+            RecipeCategory::Advanced => "advanced".into(),
+            RecipeCategory::Pro => "pro".into(),
+        };
+
+        write!(f, "{ss}")
+    }
 }
 
 impl Recipe {
@@ -117,20 +179,9 @@ impl Recipe {
         steps: &[&str],
         author_id: &str,
     ) -> Result<Self, DataDomainError> {
-        let id = match Uuid::from_str(id) {
-            Ok(id) => id,
-            Err(_) => return Err(DataDomainError::InvalidId),
-        };
-
-        let category_id = match Uuid::from_str(category_id) {
-            Ok(id) => id,
-            Err(_) => return Err(DataDomainError::InvalidId),
-        };
-
-        let author_id = match Uuid::from_str(author_id) {
-            Ok(id) => id,
-            Err(_) => return Err(DataDomainError::InvalidId),
-        };
+        let id = Uuid::from_str(id).map_err(|_| DataDomainError::InvalidId)?;
+        let category_id: RecipeCategory = category_id.try_into()?;
+        let author_id = Uuid::from_str(author_id).map_err(|_| DataDomainError::InvalidId)?;
 
         let recipe = Recipe {
             id,
@@ -149,10 +200,56 @@ impl Recipe {
             update_date: None,
         };
 
-        match recipe.validate() {
-            Ok(_) => Ok(recipe),
-            Err(e) => Err(DataDomainError::InvalidParams { source: e }),
+        recipe
+            .validate()
+            .map_err(|e| DataDomainError::InvalidParams { source: e })?;
+
+        Ok(recipe)
+    }
+}
+
+impl std::fmt::Display for RecipeQuery {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut ss = String::new();
+
+        if self.id.is_some() {
+            ss.insert_str(0, &format!("id={} ", self.id.unwrap()));
         }
+        if self.name.is_some() {
+            ss.insert_str(ss.len(), &format!("name={} ", self.name.as_ref().unwrap()));
+        }
+        if self.tags.is_some() {
+            for tag in self.tags.as_deref().unwrap() {
+                ss.insert_str(ss.len(), &format!(" tag={tag} "));
+            }
+        }
+        if self.rating.is_some() {
+            ss.insert_str(
+                ss.len(),
+                &format!("rating={} ", self.rating.as_ref().unwrap()),
+            );
+        }
+        if self.category.is_some() {
+            let category = self.category.as_ref().clone().unwrap();
+            ss.insert_str(ss.len(), &format!("category={} ", category.to_string()));
+        }
+
+        write!(f, "Search tokens: {}", ss.strip_suffix(" ").unwrap())
+    }
+}
+
+impl std::fmt::Display for StarRate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ss = match self {
+            StarRate::Null => "0 Stars",
+            StarRate::One => "1 Star",
+            StarRate::Two => "2 Stars",
+            StarRate::Three => "3 Stars",
+            StarRate::Four => "4 Stars",
+            StarRate::Five => "5 Stars",
+        };
+
+        write!(f, "{ss}")
     }
 }
 
@@ -192,7 +289,7 @@ mod tests {
                 Tag::new("alcoholic").unwrap(),
                 Tag::new("rum-based").unwrap(),
             ])),
-            category_id: Uuid::now_v7().to_string(),
+            category_id: "easy".into(),
             description: Some("A delicious cocktail for summer.".to_owned()),
             url: None,
             ingredients: Vec::from([

@@ -21,7 +21,7 @@ static RE_TAG: Lazy<Regex> = Lazy::new(|| Regex::new(r"[a-z_]{2,}$").unwrap());
 /// methods.
 ///
 /// The only special character that is allowed to identify a tag is: `_`.
-#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, Validate)]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, Validate, PartialEq)]
 pub struct Tag {
     #[validate(custom(function = "validate_identifier"), length(min = 2, max = 20))]
     pub identifier: String,
@@ -37,6 +37,12 @@ impl Tag {
             Ok(_) => Ok(tag),
             Err(_) => Err(ValidationError::new("2")),
         }
+    }
+}
+
+impl std::fmt::Display for Tag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.identifier)
     }
 }
 
