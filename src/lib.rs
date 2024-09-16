@@ -58,6 +58,7 @@ pub mod routes {
         pub mod options;
 
         pub use get::get_recipe;
+        pub use get::search_recipe;
         pub use head::head_recipe;
         pub use options::options_recipe;
     }
@@ -73,7 +74,7 @@ pub mod domain {
     pub use author::{Author, AuthorBuilder, SocialProfile};
     pub use error::DataDomainError;
     pub use ingredient::{IngCategory, Ingredient};
-    pub use recipe::{Recipe, RecipeCategory, RecipeQuery, StarRate};
+    pub use recipe::{Recipe, RecipeCategory, RecipeId, RecipeQuery, StarRate};
     pub use tag::Tag;
 }
 
@@ -121,6 +122,7 @@ impl Modify for SecurityAddon {
         routes::author::delete::delete_author,
         routes::author::options::options_author,
         routes::author::head::head_author,
+        routes::recipe::get::search_recipe,
         routes::recipe::get::get_recipe,
         routes::recipe::options::options_recipe,
         routes::recipe::head::head_recipe,

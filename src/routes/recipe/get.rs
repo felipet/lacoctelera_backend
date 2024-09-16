@@ -1,4 +1,4 @@
-use crate::domain::{Ingredient, Recipe, RecipeCategory, RecipeQuery, Tag};
+use crate::domain::{Ingredient, Recipe, RecipeCategory, RecipeId, RecipeQuery, Tag};
 use actix_web::{get, web, HttpResponse, Responder};
 use std::convert::TryFrom;
 use std::fmt::Display;
@@ -55,10 +55,68 @@ use uuid::Uuid;
     )
 )]
 #[get("/recipe")]
-pub async fn get_recipe(req: web::Query<RecipeQuery>) -> impl Responder {
+pub async fn search_recipe(req: web::Query<RecipeQuery>) -> impl Responder {
     let search_type: SearchType = (&req.0).try_into().expect("Wrong query");
 
     info!("Recipe search ({search_type}) using: {{{}}}", req.0);
+
+    let template_recipe = Recipe::new(
+        &Uuid::now_v7().to_string(),
+        "Demo recipe",
+        None,
+        Some(&Vec::from([
+            Tag::new("alcoholic").unwrap(),
+            Tag::new("rum-based").unwrap(),
+        ])),
+        Some(&Vec::from([
+            Tag::new("alcoholic").unwrap(),
+            Tag::new("rum-based").unwrap(),
+        ])),
+        &RecipeCategory::Easy.to_string(),
+        Some("A delicious cocktail for summer."),
+        None,
+        &Vec::from([
+            Ingredient::parse("Rum", "spirit", None).unwrap(),
+            Ingredient::parse("Pineapple Juice", "other", None).unwrap(),
+        ]),
+        &["Pour all the ingredients in a shaker", "Shake and serve"],
+        &Uuid::now_v7().to_string(),
+    )
+    .unwrap();
+
+    HttpResponse::NotImplemented().json(template_recipe)
+}
+
+#[utoipa::path(
+    get,
+    tag = "Recipe",
+    responses(
+        (
+            status = 200,
+            description = "The recipe identified by the given ID was found in the DB",
+            body = [Recipe],
+            headers(
+                ("Access-Control-Allow-Origin"),
+                ("Content-Type"),
+                ("Cache-Control"),
+            )
+        ),
+        (
+            status = 429,
+            description = "Too many requests",
+            headers(
+                ("Access-Control-Allow-Origin"),
+                ("Retry-After"),
+            )
+        ),
+
+    )
+
+)]
+#[get("/recipe/{RecipeId}")]
+pub async fn get_recipe(path: web::Path<(RecipeId,)>) -> impl Responder {
+    info!("Recipe ID: {:#?} requested", path.0);
+    info!("Sending default Recipe descriptor until the final logic is implemented.");
 
     let template_recipe = Recipe::new(
         &Uuid::now_v7().to_string(),
