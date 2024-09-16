@@ -56,11 +56,13 @@ pub mod routes {
         pub mod get;
         pub mod head;
         pub mod options;
+        pub mod post;
 
         pub use get::get_recipe;
         pub use get::search_recipe;
         pub use head::head_recipe;
         pub use options::options_recipe;
+        pub use post::post_recipe;
     }
 }
 
@@ -126,6 +128,7 @@ impl Modify for SecurityAddon {
         routes::recipe::get::get_recipe,
         routes::recipe::options::options_recipe,
         routes::recipe::head::head_recipe,
+        routes::recipe::post::post_recipe,
     ),
     components(
         schemas(

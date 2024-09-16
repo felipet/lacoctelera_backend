@@ -74,6 +74,7 @@ pub async fn run(
             .service(routes::recipe::get_recipe)
             .service(routes::recipe::options_recipe)
             .service(routes::recipe::head_recipe)
+            .service(routes::recipe::post_recipe)
             .service(SwaggerUi::new("/{_:.*}").url("/api-docs/openapi.json", ApiDoc::openapi()))
             .app_data(db_pool.clone())
     })
