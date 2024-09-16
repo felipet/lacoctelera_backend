@@ -51,6 +51,12 @@ pub mod routes {
         pub use options::options_author;
         pub use patch::patch_author;
     }
+
+    pub mod recipe {
+        pub mod get;
+
+        pub use get::get_recipe;
+    }
 }
 
 pub mod domain {
@@ -63,7 +69,7 @@ pub mod domain {
     pub use author::{Author, AuthorBuilder, SocialProfile};
     pub use error::DataDomainError;
     pub use ingredient::{IngCategory, Ingredient};
-    pub use recipe::{Recipe, RecipeQuery, StarRate};
+    pub use recipe::{Recipe, RecipeCategory, RecipeQuery, StarRate};
     pub use tag::Tag;
 }
 
@@ -111,9 +117,13 @@ impl Modify for SecurityAddon {
         routes::author::delete::delete_author,
         routes::author::options::options_author,
         routes::author::head::head_author,
+        routes::recipe::get::get_recipe,
     ),
     components(
-        schemas(Ingredient, IngCategory, FormData, AuthData, health::HealthResponse, health::ServerStatus, domain::Author, domain::SocialProfile, domain::Tag, domain::Recipe, domain::RecipeQuery)
+        schemas(
+            Ingredient, IngCategory, FormData, AuthData, health::HealthResponse, health::ServerStatus, domain::Author,
+            domain::SocialProfile, domain::Tag, domain::Recipe, domain::RecipeCategory, domain::StarRate
+        )
     ),
     tags(
         (name = "Ingredient", description = "Endpoints related to recipe's ingredients."),

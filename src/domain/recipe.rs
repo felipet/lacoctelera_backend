@@ -44,7 +44,7 @@ pub struct Recipe {
     /// List of tags assigned by the internal logic.
     tags: Option<Vec<Tag>>,
     /// Recipe's category.
-    category_id: RecipeCategory,
+    category: RecipeCategory,
     /// Recipe's rating.
     rating: StarRate,
     #[validate(length(min = 2), length(max = 400))]
@@ -75,8 +75,9 @@ pub struct Recipe {
 /// a search in the `Cocktail` DB. Recipe queries are allowed using a single member or a combination of many. In that
 /// case, the intersection set of the result sets for each individual query is returned. Notice that set could be
 /// empty if all the result sets are disjoint.
-#[derive(Clone, Debug, Serialize, Deserialize, IntoParams, ToSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, IntoParams)]
 pub struct RecipeQuery {
+    #[param(value_type = String, example = "0191e13b-5ab7-78f1-bc06-be503a6c111b")]
     pub id: Option<Uuid>,
     pub name: Option<String>,
     pub tags: Option<Vec<Tag>>,
@@ -134,9 +135,9 @@ impl TryFrom<&str> for RecipeCategory {
     }
 }
 
-impl Into<String> for RecipeCategory {
-    fn into(self) -> String {
-        match self {
+impl From<RecipeCategory> for String {
+    fn from(val: RecipeCategory) -> Self {
+        match val {
             RecipeCategory::Easy => "easy".into(),
             RecipeCategory::Medium => "medium".into(),
             RecipeCategory::Advanced => "advanced".into(),
@@ -172,7 +173,7 @@ impl Recipe {
         image_id: Option<&str>,
         author_tags: Option<&[Tag]>,
         tags: Option<&[Tag]>,
-        category_id: &str,
+        category: &str,
         description: Option<&str>,
         url: Option<&str>,
         ingredients: &[Ingredient],
@@ -180,7 +181,7 @@ impl Recipe {
         author_id: &str,
     ) -> Result<Self, DataDomainError> {
         let id = Uuid::from_str(id).map_err(|_| DataDomainError::InvalidId)?;
-        let category_id: RecipeCategory = category_id.try_into()?;
+        let category: RecipeCategory = category.try_into()?;
         let author_id = Uuid::from_str(author_id).map_err(|_| DataDomainError::InvalidId)?;
 
         let recipe = Recipe {
@@ -189,7 +190,7 @@ impl Recipe {
             image_id: image_id.map(String::from),
             author_tags: author_tags.map(Vec::from),
             tags: tags.map(Vec::from),
-            category_id,
+            category,
             rating: StarRate::Null,
             description: description.map(String::from),
             url: url.map(String::from),
@@ -230,8 +231,8 @@ impl std::fmt::Display for RecipeQuery {
             );
         }
         if self.category.is_some() {
-            let category = self.category.as_ref().clone().unwrap();
-            ss.insert_str(ss.len(), &format!("category={} ", category.to_string()));
+            let category = self.category.as_ref().unwrap();
+            ss.insert_str(ss.len(), &format!("category={category} "));
         }
 
         write!(f, "Search tokens: {}", ss.strip_suffix(" ").unwrap())
@@ -267,7 +268,7 @@ mod tests {
         pub image_id: Option<String>,
         pub author_tags: Option<Vec<Tag>>,
         pub tags: Option<Vec<Tag>>,
-        pub category_id: String,
+        pub category: String,
         pub description: Option<String>,
         pub url: Option<String>,
         pub ingredients: Vec<Ingredient>,
@@ -289,7 +290,7 @@ mod tests {
                 Tag::new("alcoholic").unwrap(),
                 Tag::new("rum-based").unwrap(),
             ])),
-            category_id: "easy".into(),
+            category: "easy".into(),
             description: Some("A delicious cocktail for summer.".to_owned()),
             url: None,
             ingredients: Vec::from([
@@ -309,7 +310,7 @@ mod tests {
             template_recipe.image_id.as_deref(),
             template_recipe.author_tags.as_deref(),
             template_recipe.tags.as_deref(),
-            &template_recipe.category_id,
+            &template_recipe.category,
             template_recipe.description.as_deref(),
             template_recipe.url.as_deref(),
             &template_recipe.ingredients,
@@ -330,8 +331,8 @@ mod tests {
         assert_eq!(recipe.author_tags, template_recipe.author_tags);
         assert_eq!(recipe.tags, template_recipe.tags);
         assert_eq!(
-            recipe.category_id.to_string(),
-            template_recipe.category_id.to_string()
+            recipe.category.to_string(),
+            template_recipe.category.to_string()
         );
         assert_eq!(recipe.rating, StarRate::Null);
         assert_eq!(
@@ -354,7 +355,7 @@ mod tests {
             template_recipe.image_id.as_deref(),
             template_recipe.author_tags.as_deref(),
             template_recipe.tags.as_deref(),
-            &template_recipe.category_id,
+            &template_recipe.category,
             template_recipe.description.as_deref(),
             template_recipe.url.as_deref(),
             &template_recipe.ingredients,
@@ -371,7 +372,7 @@ mod tests {
             template_recipe.image_id.as_deref(),
             template_recipe.author_tags.as_deref(),
             template_recipe.tags.as_deref(),
-            &template_recipe.category_id,
+            &template_recipe.category,
             template_recipe.description.as_deref(),
             template_recipe.url.as_deref(),
             &template_recipe.ingredients,
@@ -388,7 +389,7 @@ mod tests {
             template_recipe.image_id.as_deref(),
             template_recipe.author_tags.as_deref(),
             template_recipe.tags.as_deref(),
-            &template_recipe.category_id,
+            &template_recipe.category,
             Some(&"An extremely long description".repeat(1000)),
             template_recipe.url.as_deref(),
             &template_recipe.ingredients,
