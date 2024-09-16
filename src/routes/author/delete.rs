@@ -1,6 +1,6 @@
 //! Author endpoint DELETE method.
 
-use crate::domain::AuthorId;
+use crate::domain::Author;
 use actix_web::{delete, web, HttpResponse, Responder};
 
 /// DELETE method for the Author endpoint (Restricted).
@@ -28,6 +28,6 @@ use actix_web::{delete, web, HttpResponse, Responder};
     )
 )]
 #[delete("/author/{AuthorId}")]
-pub async fn delete_author(_path: web::Path<(AuthorId,)>) -> impl Responder {
+pub async fn delete_author(_path: web::Path<(Author,)>) -> impl Responder {
     HttpResponse::NotImplemented().finish()
 }

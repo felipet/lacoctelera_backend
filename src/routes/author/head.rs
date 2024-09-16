@@ -1,6 +1,6 @@
 //! Author endpoint head method.
 
-use crate::domain::AuthorId;
+use crate::domain::Author;
 use actix_web::{head, web, HttpResponse, Responder};
 
 /// HEAD method for the Author endpoint (Public).
@@ -41,6 +41,6 @@ use actix_web::{head, web, HttpResponse, Responder};
     )
 )]
 #[head("/author/{AuthorId}")]
-pub async fn head_author(_path: web::Path<(AuthorId,)>) -> impl Responder {
+pub async fn head_author(_path: web::Path<(Author,)>) -> impl Responder {
     HttpResponse::NotImplemented().finish()
 }

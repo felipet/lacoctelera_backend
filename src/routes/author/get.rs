@@ -1,4 +1,4 @@
-use crate::domain::{Author, AuthorBuilder, AuthorId};
+use crate::domain::{Author, AuthorBuilder};
 use actix_web::{get, web, HttpResponse, Responder};
 use tracing::info;
 
@@ -57,8 +57,8 @@ use tracing::info;
     )
 )]
 #[get("/author/{AuthorId}")]
-pub async fn get_author(path: web::Path<(AuthorId,)>) -> impl Responder {
-    info!("Author ID: {} requested", path.0);
+pub async fn get_author(path: web::Path<(Author,)>) -> impl Responder {
+    info!("Author ID: {:#?} requested", path.0);
     info!("Sending default Author descriptor until the final logic is implemented.");
 
     let author = Author::default();
