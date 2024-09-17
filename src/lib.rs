@@ -39,7 +39,6 @@ pub mod routes {
     }
 
     pub mod author {
-        pub mod auth;
         pub mod delete;
         pub mod get;
         pub mod head;
