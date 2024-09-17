@@ -1,9 +1,10 @@
 //! La Coctelera library.
 
+use crate::domain::DataDomainError;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use routes::{health, ingredient::FormData};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use utoipa::{
     openapi::{
         security::{ApiKey, ApiKeyValue, SecurityScheme},
@@ -76,7 +77,7 @@ pub mod domain {
     pub use author::{Author, AuthorBuilder, SocialProfile};
     pub use error::DataDomainError;
     pub use ingredient::{IngCategory, Ingredient};
-    pub use recipe::{Recipe, RecipeCategory, RecipeId, RecipeQuery, StarRate};
+    pub use recipe::{Recipe, RecipeCategory, RecipeQuery, StarRate};
     pub use tag::Tag;
 }
 
@@ -105,6 +106,20 @@ impl Modify for SecurityAddon {
                 "API key token to access restricted endpoints.",
             ))),
         )
+    }
+}
+
+/// Simple query object that represents an ID for recipes.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct QueryId(Uuid);
+
+impl TryFrom<&str> for QueryId {
+    type Error = DataDomainError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let id = Uuid::parse_str(value).map_err(|_| DataDomainError::InvalidId)?;
+
+        Ok(QueryId(id))
     }
 }
 

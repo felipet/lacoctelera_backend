@@ -56,8 +56,8 @@ use tracing::info;
         )
     )
 )]
-#[get("/author/{AuthorId}")]
-pub async fn get_author(path: web::Path<(Author,)>) -> impl Responder {
+#[get("/author/{id}")]
+pub async fn get_author(path: web::Path<(String,)>) -> impl Responder {
     info!("Author ID: {:#?} requested", path.0);
     info!("Sending default Author descriptor until the final logic is implemented.");
 

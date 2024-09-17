@@ -24,7 +24,7 @@ thiserror = "1.0.63"
 tracing = "0.1.40"
 tracing-actix-web = "0.7.11"
 tracing-subscriber = { version = "0.3.18", features = ["std"] }
-utoipa = { version = "4.2.3", features = ["actix_extras"] }
+utoipa = { version = "4.2.3", features = ["actix_extras", "uuid"] }
 utoipa-swagger-ui = { version = "5.0.0", features = ["actix-web"] }
 uuid = { version = "1.10.0", features = ["v7", "serde", "std"] }
 validator = { version = "0.16", features = ["derive"] }

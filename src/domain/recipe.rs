@@ -85,23 +85,6 @@ pub struct RecipeQuery {
     pub category: Option<RecipeCategory>,
 }
 
-/// Simple query object that represents an ID for recipes.
-#[derive(Clone, Debug, Serialize, Deserialize, IntoParams)]
-pub struct RecipeId {
-    #[param(value_type = String, example = "0191e13b-5ab7-78f1-bc06-be503a6c111b")]
-    pub id: Uuid,
-}
-
-impl TryFrom<&str> for RecipeId {
-    type Error = DataDomainError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let id = Uuid::parse_str(value).map_err(|_| DataDomainError::InvalidId)?;
-
-        Ok(RecipeId { id })
-    }
-}
-
 /// Simple `enum` to represent a 5-star rating system.
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema, PartialEq)]
 pub enum StarRate {

@@ -1,4 +1,4 @@
-use crate::domain::{Ingredient, Recipe, RecipeCategory, RecipeId, RecipeQuery, Tag};
+use crate::domain::{Ingredient, Recipe, RecipeCategory, RecipeQuery, Tag};
 use actix_web::{get, web, HttpResponse, Responder};
 use std::convert::TryFrom;
 use std::fmt::Display;
@@ -113,8 +113,8 @@ pub async fn search_recipe(req: web::Query<RecipeQuery>) -> impl Responder {
     )
 
 )]
-#[get("/recipe/{RecipeId}")]
-pub async fn get_recipe(path: web::Path<(RecipeId,)>) -> impl Responder {
+#[get("/recipe/{id}")]
+pub async fn get_recipe(path: web::Path<(String,)>) -> impl Responder {
     info!("Recipe ID: {:#?} requested", path.0);
     info!("Sending default Recipe descriptor until the final logic is implemented.");
 
