@@ -1,4 +1,6 @@
-use crate::domain::{Ingredient, Recipe, RecipeCategory, RecipeQuery, Tag};
+//! Example
+
+use crate::domain::{QuantityUnit, Recipe, RecipeCategory, RecipeContains, RecipeQuery, Tag};
 use actix_web::{get, web, HttpResponse, Responder};
 use std::convert::TryFrom;
 use std::fmt::Display;
@@ -9,25 +11,23 @@ use uuid::Uuid;
 ///
 /// # Description
 ///
-/// The GET method allows searching a recipe in the DB using any combination of the fields included in `RecipeQuery`.
-/// If `RecipeQuery::id` is provided along the request body, any other fields included in the request will be ignored,
-/// i.e. this is not a search but a direct attempt to get a particular recipe from the DB, thus up to a single recipe
-/// would be returned.
+/// The GET method allows *searching* a recipe in the DB. It expects multiple attributes to filter the recipes in the
+/// DB that shall be encoded in the url. The following keys can be used to perform a search:
+/// - `name`: Use a string that can match the name of a recipe (or part of it).
+/// - `tags`: Only recipes that contain all the included tags in the query will be returned by the API.
+/// - `rating`: Recipes that are scored with a rating greater or equal to the given rating will be returned by the API.
+///   See the schema `RecipeRating` for more details.
+/// - `category`: Filter recipes using one of the available categories. See the schema `RecipeCategory` for more
+///    details.
 ///
-/// When using any other combination of fields but the ID, a search will be performed in the DB. Many results might
-/// match the given query, so be aware this is not the best way to retrieve a particular recipe from the DB.
+/// A query can be composed by many attributes. For example, consider this query:
 ///
-/// An intersection is applied between all the matches that result from applying a search using each one of the given
-/// query fields. For instance, if a `RecipeQuery`` like this is given:
+/// ```bash
+/// http://localhost:9090/recipe?name=margarita&tags=tequila&tags=reposado&rating=2
+/// ```
 ///
-/// > RecipeQuery {
-/// >   name: "Delicious Cocktail",
-/// >   tags: ["non-alcoholic"],
-/// >   rating: StarRate::Five,
-/// > }
-///
-/// And no existing recipes in the DB meet all the given attributes, an empty array will be returned despite some of
-/// the individual search operations produced some matches.
+/// Would return recipes that contain the string *margarita* in their name attribute; whose tags include *tequila* and
+/// *reposado*; and, whose rating is greater or equal to 4 stars.
 #[utoipa::path(
     get,
     tag = "Recipe",
@@ -76,8 +76,16 @@ pub async fn search_recipe(req: web::Query<RecipeQuery>) -> impl Responder {
         Some("A delicious cocktail for summer."),
         None,
         &Vec::from([
-            Ingredient::parse("Rum", "spirit", None).unwrap(),
-            Ingredient::parse("Pineapple Juice", "other", None).unwrap(),
+            RecipeContains {
+                quantity: 100.0,
+                unit: QuantityUnit::Grams,
+                ingredient_id: Uuid::now_v7(),
+            },
+            RecipeContains {
+                quantity: 20.0,
+                unit: QuantityUnit::MilliLiter,
+                ingredient_id: Uuid::now_v7(),
+            },
         ]),
         &["Pour all the ingredients in a shaker", "Shake and serve"],
         &Uuid::now_v7().to_string(),
@@ -87,6 +95,7 @@ pub async fn search_recipe(req: web::Query<RecipeQuery>) -> impl Responder {
     HttpResponse::NotImplemented().json(template_recipe)
 }
 
+/// Retrieve a recipe from the DB using its unique ID.
 #[utoipa::path(
     get,
     tag = "Recipe",
@@ -134,8 +143,16 @@ pub async fn get_recipe(path: web::Path<(String,)>) -> impl Responder {
         Some("A delicious cocktail for summer."),
         None,
         &Vec::from([
-            Ingredient::parse("Rum", "spirit", None).unwrap(),
-            Ingredient::parse("Pineapple Juice", "other", None).unwrap(),
+            RecipeContains {
+                quantity: 100.0,
+                unit: QuantityUnit::Grams,
+                ingredient_id: Uuid::now_v7(),
+            },
+            RecipeContains {
+                quantity: 20.0,
+                unit: QuantityUnit::MilliLiter,
+                ingredient_id: Uuid::now_v7(),
+            },
         ]),
         &["Pour all the ingredients in a shaker", "Shake and serve"],
         &Uuid::now_v7().to_string(),
@@ -147,7 +164,6 @@ pub async fn get_recipe(path: web::Path<(String,)>) -> impl Responder {
 
 #[derive(Debug, Clone)]
 enum SearchType {
-    ById,
     ByName,
     ByTags,
     ByRating,
@@ -158,7 +174,6 @@ enum SearchType {
 impl Display for SearchType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let ss = match self {
-            SearchType::ById => "ById",
             SearchType::ByName => "ByName",
             SearchType::ByTags => "ByTags",
             SearchType::ByRating => "ByRating",
@@ -186,9 +201,7 @@ impl TryFrom<&RecipeQuery> for SearchType {
     type Error = String;
 
     fn try_from(query: &RecipeQuery) -> std::result::Result<Self, Self::Error> {
-        if query.id.is_some() {
-            Ok(SearchType::ById)
-        } else if multiple_choices(query) {
+        if multiple_choices(query) {
             Ok(SearchType::Intersection)
         } else if query.name.is_some() {
             Ok(SearchType::ByName)
