@@ -64,7 +64,7 @@ pub async fn run(
             .service(health::options_echo)
             .service(health::health_check)
             .service(health::options_health)
-            .service(routes::ingredient::get_ingredient)
+            .service(routes::ingredient::search_ingredient)
             .service(routes::ingredient::add_ingredient)
             .service(routes::ingredient::options_ingredient)
             .service(routes::author::get_author)

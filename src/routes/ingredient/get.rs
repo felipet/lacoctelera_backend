@@ -21,7 +21,6 @@ pub struct QueryData {
 /// GET for the API's /ingredient endpoint.
 #[utoipa::path(
     get,
-    path = "/ingredient",
     tag = "Ingredient",
     params(
         QueryData
@@ -46,7 +45,7 @@ pub struct QueryData {
     )
 )]
 #[get("/ingredient")]
-pub async fn get_ingredient(
+pub async fn search_ingredient(
     pool: web::Data<MySqlPool>,
     req: web::Query<QueryData>,
 ) -> impl Responder {
@@ -84,6 +83,11 @@ pub async fn get_ingredient(
     HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
         .json(ingredients)
+}
+
+#[get("/ingredient{id}")]
+pub async fn get_ingredient(_req: web::Path<String>) -> impl Responder {
+    HttpResponse::NotImplemented().finish()
 }
 
 #[instrument(skip(pool, ingredient))]

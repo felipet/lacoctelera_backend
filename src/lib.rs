@@ -33,7 +33,7 @@ pub mod routes {
         pub mod options;
         pub mod post;
 
-        pub use get::{get_ingredient, QueryData};
+        pub use get::{search_ingredient, QueryData};
         pub use options::options_ingredient;
         pub use post::{add_ingredient, FormData};
     }
@@ -126,7 +126,7 @@ impl TryFrom<&str> for QueryId {
 #[derive(OpenApi)]
 #[openapi(
     paths(
-        routes::ingredient::get::get_ingredient,
+        routes::ingredient::get::search_ingredient,
         routes::ingredient::post::add_ingredient,
         routes::ingredient::options::options_ingredient,
         routes::health::echo,
