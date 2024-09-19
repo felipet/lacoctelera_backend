@@ -72,6 +72,7 @@ pub async fn run(
             .service(routes::author::head_author)
             .service(routes::author::options_author)
             .service(routes::recipe::get_recipe)
+            .service(routes::recipe::search_recipe)
             .service(routes::recipe::options_recipe)
             .service(routes::recipe::head_recipe)
             .service(routes::recipe::post_recipe)

@@ -76,7 +76,7 @@ pub mod domain {
     pub use author::{Author, AuthorBuilder, SocialProfile};
     pub use error::DataDomainError;
     pub use ingredient::{IngCategory, Ingredient};
-    pub use recipe::{Recipe, RecipeCategory, RecipeQuery, StarRate};
+    pub use recipe::{QuantityUnit, Recipe, RecipeCategory, RecipeContains, RecipeQuery, StarRate};
     pub use tag::Tag;
 }
 
@@ -147,7 +147,8 @@ impl TryFrom<&str> for QueryId {
     components(
         schemas(
             Ingredient, IngCategory, FormData, AuthData, health::HealthResponse, health::ServerStatus, domain::Author,
-            domain::SocialProfile, domain::Tag, domain::Recipe, domain::RecipeCategory, domain::StarRate
+            domain::SocialProfile, domain::Tag, domain::Recipe, domain::RecipeCategory, domain::StarRate,
+            domain::RecipeContains, domain::QuantityUnit
         )
     ),
     tags(
