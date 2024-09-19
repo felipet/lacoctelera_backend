@@ -57,6 +57,19 @@ use tracing::info;
     )
 )]
 #[get("/author/{id}")]
+pub async fn search_author(path: web::Path<(String,)>) -> impl Responder {
+    info!("Author ID: {:#?} requested", path.0);
+    info!("Sending default Author descriptor until the final logic is implemented.");
+
+    let author = Author::default();
+
+    HttpResponse::NotImplemented()
+        // Store author's data in the cache for a day.
+        .append_header(("Cache-Control", "max-age=86400"))
+        .json(author)
+}
+
+#[get("/author/{id}")]
 pub async fn get_author(path: web::Path<(String,)>) -> impl Responder {
     info!("Author ID: {:#?} requested", path.0);
     info!("Sending default Author descriptor until the final logic is implemented.");

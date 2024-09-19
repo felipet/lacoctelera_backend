@@ -46,7 +46,7 @@ pub mod routes {
         pub mod patch;
 
         pub use delete::delete_author;
-        pub use get::get_author;
+        pub use get::search_author;
         pub use head::head_author;
         pub use options::options_author;
         pub use patch::patch_author;
@@ -133,7 +133,7 @@ impl TryFrom<&str> for QueryId {
         routes::health::options_echo,
         routes::health::health_check,
         routes::health::options_health,
-        routes::author::get::get_author,
+        routes::author::get::search_author,
         routes::author::patch::patch_author,
         routes::author::delete::delete_author,
         routes::author::options::options_author,

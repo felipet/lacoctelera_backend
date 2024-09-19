@@ -67,7 +67,7 @@ pub async fn run(
             .service(routes::ingredient::search_ingredient)
             .service(routes::ingredient::add_ingredient)
             .service(routes::ingredient::options_ingredient)
-            .service(routes::author::get_author)
+            .service(routes::author::search_author)
             .service(routes::author::patch_author)
             .service(routes::author::head_author)
             .service(routes::author::options_author)
