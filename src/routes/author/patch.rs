@@ -1,6 +1,5 @@
 //! Author endpoint PATCH method.
 
-use crate::domain::Author;
 use actix_web::{patch, web, HttpResponse, Responder};
 
 /// PATCH method for the Author endpoint (Restricted).
@@ -27,7 +26,7 @@ use actix_web::{patch, web, HttpResponse, Responder};
         ("api_key" = [])
     )
 )]
-#[patch("/author/{AuthorId}")]
-pub async fn patch_author(_path: web::Path<(Author,)>) -> impl Responder {
+#[patch("/author/{id}")]
+pub async fn patch_author(_path: web::Path<(String,)>) -> impl Responder {
     HttpResponse::NotImplemented().finish()
 }

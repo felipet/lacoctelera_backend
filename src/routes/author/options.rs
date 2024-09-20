@@ -1,6 +1,5 @@
 //! Author endpoint OPTIONS method.
 
-use crate::domain::Author;
 use actix_web::{options, web, HttpResponse, Responder};
 
 /// OPTIONS method for the Author endpoint (Public).
@@ -21,7 +20,7 @@ use actix_web::{options, web, HttpResponse, Responder};
         ),
     )
 )]
-#[options("/author/{AuthorId}")]
-pub async fn options_author(_path: web::Path<(Author,)>) -> impl Responder {
+#[options("/author/{id}")]
+pub async fn options_author(_path: web::Path<(String,)>) -> impl Responder {
     HttpResponse::NotImplemented().finish()
 }
