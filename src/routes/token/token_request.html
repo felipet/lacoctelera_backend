@@ -1,0 +1,33 @@
+<!-- src/routes/token/request_token.html -->
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta http-equiv="content-type" content="text/html; charset=utf-8">
+        <title>Login</title>
+    </head>
+    <body>
+        <div><h1>Access request to the API of La Coctelera</h1></div>
+
+        <div>
+            <form action="/token/request" method="post">
+                <label>Email
+                    <input
+                        type="email"
+                        placeholder="Enter your email"
+                        name="email"
+                    >
+                </label>
+
+                <label>
+                    <input
+                        type="text"
+                        placeholder="Explain the purpose of the intended use of this API."
+                        name="explanation"
+                    >
+                </label>
+
+                <button type="submit">Request API token</button>
+            </form>
+        </div>
+    </body>
+</html>

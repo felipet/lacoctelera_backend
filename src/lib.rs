@@ -74,9 +74,16 @@ pub mod routes {
         pub use patch::patch_recipe;
         pub use post::post_recipe;
     }
+
+    pub mod token {
+        pub mod token_request;
+
+        pub use token_request::{token_req_get, token_req_post};
+    }
 }
 
 pub mod domain {
+    pub mod auth;
     pub mod author;
     mod error;
     mod ingredient;

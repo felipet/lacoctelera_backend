@@ -25,4 +25,6 @@ pub enum DataDomainError {
     InvalidId,
     #[error("The given string is not a valid recipe's category")]
     InvalidRecipeCategory,
+    #[error("The data provided in the form is invalid")]
+    InvalidFormData,
 }
