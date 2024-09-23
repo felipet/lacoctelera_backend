@@ -36,7 +36,7 @@ jobs:
           key: sqlx-${{ env.SQLX_VERSION }}
       - name: Linting
         run: cargo clippy --no-deps -- -D warnings
-        
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -75,4 +75,3 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
-

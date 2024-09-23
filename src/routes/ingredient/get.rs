@@ -1,3 +1,9 @@
+// Copyright 2024 Felipe Torres González
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 use crate::domain::Ingredient;
 use actix_web::{get, web, HttpResponse, Responder, Result};
 use serde::Deserialize;
@@ -21,7 +27,6 @@ pub struct QueryData {
 /// GET for the API's /ingredient endpoint.
 #[utoipa::path(
     get,
-    path = "/ingredient",
     tag = "Ingredient",
     params(
         QueryData
@@ -46,7 +51,7 @@ pub struct QueryData {
     )
 )]
 #[get("/ingredient")]
-pub async fn get_ingredient(
+pub async fn search_ingredient(
     pool: web::Data<MySqlPool>,
     req: web::Query<QueryData>,
 ) -> impl Responder {
@@ -84,6 +89,11 @@ pub async fn get_ingredient(
     HttpResponse::Ok()
         .append_header(("Access-Control-Allow-Origin", "*"))
         .json(ingredients)
+}
+
+#[get("/ingredient{id}")]
+pub async fn get_ingredient(_req: web::Path<String>) -> impl Responder {
+    HttpResponse::NotImplemented().finish()
 }
 
 #[instrument(skip(pool, ingredient))]

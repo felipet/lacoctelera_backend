@@ -1,8 +1,15 @@
+// Copyright 2024 Felipe Torres González
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! Module that includes helper functions to start the **La Coctelera** application.
 
 use crate::{
     configuration::{DataBaseSettings, Settings},
-    routes, ApiDoc,
+    routes::{self, health},
+    ApiDoc,
 };
 use actix_web::{dev::Server, web, App, HttpServer};
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool};
@@ -60,9 +67,22 @@ pub async fn run(
         App::new()
             .wrap(TracingLogger::default())
             .service(routes::echo)
-            .service(routes::ingredient::get_ingredient)
+            .service(health::options_echo)
+            .service(health::health_check)
+            .service(health::options_health)
+            .service(routes::ingredient::search_ingredient)
             .service(routes::ingredient::add_ingredient)
             .service(routes::ingredient::options_ingredient)
+            .service(routes::author::search_author)
+            .service(routes::author::patch_author)
+            .service(routes::author::head_author)
+            .service(routes::author::options_author)
+            .service(routes::author::post_author)
+            .service(routes::recipe::get_recipe)
+            .service(routes::recipe::search_recipe)
+            .service(routes::recipe::options_recipe)
+            .service(routes::recipe::head_recipe)
+            .service(routes::recipe::post_recipe)
             .service(SwaggerUi::new("/{_:.*}").url("/api-docs/openapi.json", ApiDoc::openapi()))
             .app_data(db_pool.clone())
     })

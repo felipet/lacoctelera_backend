@@ -1,3 +1,9 @@
+// Copyright 2024 Felipe Torres González
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 use anyhow::bail;
 use core::fmt;
 use regex::Regex;
@@ -34,7 +40,7 @@ pub enum IngCategory {
 /// This object only represents the ingredients as a model for being included in
 /// individual recipes. Hence no information related to quantities or any other information
 /// that joins an ingredient with a recipe  is included as an attribute of this object.
-#[derive(Serialize, Deserialize, ToSchema)]
+#[derive(Clone, Serialize, Deserialize, ToSchema)]
 pub struct Ingredient {
     name: String,
     category: IngCategory,
