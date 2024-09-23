@@ -141,13 +141,18 @@ pub struct RecipeContains {
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum QuantityUnit {
+    #[serde(rename = "g")]
     Grams,
+    #[serde(rename = "ml")]
     MilliLiter,
     Dash,
     Unit,
+    #[serde(rename = "oz")]
     Ounces,
     Drops,
+    #[serde(rename = "tbsp")]
     TableSpoon,
+    #[serde(rename = "tsp")]
     TeaSpoon,
     Cups,
 }
