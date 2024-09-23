@@ -58,12 +58,14 @@ pub mod routes {
         pub mod get;
         pub mod head;
         pub mod options;
+        pub mod patch;
         pub mod post;
 
         pub use get::get_recipe;
         pub use get::search_recipe;
         pub use head::head_recipe;
         pub use options::options_recipe;
+        pub use patch::patch_recipe;
         pub use post::post_recipe;
     }
 }
@@ -146,6 +148,7 @@ impl TryFrom<&str> for QueryId {
         routes::recipe::options::options_recipe,
         routes::recipe::head::head_recipe,
         routes::recipe::post::post_recipe,
+        routes::recipe::patch::patch_recipe,
     ),
     components(
         schemas(
