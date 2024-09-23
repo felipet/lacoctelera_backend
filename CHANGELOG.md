@@ -22,3 +22,12 @@ _Nothing yet_
   uniform way.
 - Add CI to the repository.
 - Add a deployment stage to publish the generated docs for the companion library of the app.
+
+## [0.2.0] - 2024-09-23
+
+- Full definition of the `/author`endpoint with a dummy implementation.
+- Full definition of the `/recipe`endpoint with a dummy implementation.
+- Definition of the `/echo` endpoint with a dummy implementation.
+- Definition of the `/health` endpoint with a dummy implementation.
+- Full definition of all the data objects needed to send/recipe data from the API to the clients.
+- Introduced restricted access endpoints.
