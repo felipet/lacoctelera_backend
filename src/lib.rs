@@ -44,12 +44,14 @@ pub mod routes {
         pub mod head;
         pub mod options;
         pub mod patch;
+        pub mod post;
 
         pub use delete::delete_author;
         pub use get::search_author;
         pub use head::head_author;
         pub use options::options_author;
         pub use patch::patch_author;
+        pub use post::post_author;
     }
 
     pub mod recipe {
@@ -138,6 +140,7 @@ impl TryFrom<&str> for QueryId {
         routes::author::delete::delete_author,
         routes::author::options::options_author,
         routes::author::head::head_author,
+        routes::author::post::post_author,
         routes::recipe::get::search_recipe,
         routes::recipe::get::get_recipe,
         routes::recipe::options::options_recipe,
@@ -153,7 +156,9 @@ impl TryFrom<&str> for QueryId {
     ),
     tags(
         (name = "Ingredient", description = "Endpoints related to recipe's ingredients."),
-        (name = "Maintenance", description = "Endpoints related to server's status.")
+        (name = "Maintenance", description = "Endpoints related to server's status."),
+        (name = "Author", description = "Endpoints related to the management of authors."),
+        (name = "Recipe", description = "Endpoints related to the management of recipes.")
     ),
     info(
         title = "La Coctelera API",
