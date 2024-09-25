@@ -23,7 +23,8 @@ pub async fn token_req_post(req: HttpRequest, form: Form<TokenRequestData>) -> i
         message_html.insert_str(0, "<h3>The request was sent. After the request is evaluated, an email will be sent to inform you about the following steps.</h3>");
         let request = request.unwrap();
         info!("An API token was requested by {}", request.email());
-        todo!("Process the request");
+
+        return HttpResponse::NotImplemented().finish();
     } else {
         debug!(
             "Failed attempt to request an API token from the IP: {}",

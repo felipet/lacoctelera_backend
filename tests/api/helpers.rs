@@ -8,12 +8,28 @@
 
 use actix_web::rt::spawn;
 use lacoctelera::{
+    configuration::LogSettings,
     configuration::{DataBaseSettings, Settings},
     routes::ingredient::{FormData, QueryData},
     startup::Application,
+    telemetry::configure_tracing,
 };
+use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, MySqlConnection, MySqlPool};
 use uuid::Uuid;
+
+static TRACING: Lazy<()> = Lazy::new(|| {
+    let settings = LogSettings {
+        tracing_level: "info".into(),
+        log_output_file: "debug".into(),
+        enable_console_log: Some(true),
+        console_tracing_level: Some("debug".to_string()),
+    };
+
+    if std::env::var("TEST_LOG").is_ok() {
+        configure_tracing(&settings);
+    }
+});
 
 pub struct TestApp {
     pub address: String,
@@ -48,9 +64,24 @@ impl TestApp {
             .await
             .expect("Failed to execute post_ingredient request.")
     }
+
+    pub async fn post_token_request<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.api_client
+            .post(&format!("{}/token/request", &self.address))
+            .form(body)
+            .header("Content-type", "application/json")
+            .send()
+            .await
+            .expect("Failed to execute post_token_request.")
+    }
 }
 
 pub async fn spawn_app() -> TestApp {
+    Lazy::force(&TRACING);
+
     let configuration = {
         let mut c = Settings::new().expect("Failed to read configuration");
         c.database.db_name = Uuid::new_v4().to_string();
