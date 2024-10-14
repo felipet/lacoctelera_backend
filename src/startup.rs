@@ -12,6 +12,7 @@ use crate::{
     ApiDoc,
 };
 use actix_web::{dev::Server, web, App, HttpServer};
+use mailjet_client::{MailjetClient, MailjetClientBuilder};
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool};
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
@@ -37,10 +38,20 @@ impl Application {
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr().unwrap().port();
 
+        let mail_client = MailjetClientBuilder::new(
+            configuration.email_client.api_user,
+            configuration.email_client.api_key,
+        )
+        .with_api_version(&configuration.email_client.target_api)
+        .with_email_name("La Coctelera")
+        .with_https_enforcing(true)
+        .build()?;
+
         let server = run(
             listener,
             connection_pool,
             configuration.application.base_url,
+            mail_client,
         )
         .await?;
 
@@ -60,8 +71,10 @@ pub async fn run(
     listener: TcpListener,
     db_pool: MySqlPool,
     _base_url: String,
+    mail_client: MailjetClient,
 ) -> Result<Server, anyhow::Error> {
     let db_pool = web::Data::new(db_pool);
+    let mail_client = web::Data::new(mail_client);
 
     let server = HttpServer::new(move || {
         App::new()
@@ -90,6 +103,7 @@ pub async fn run(
             )
             .service(SwaggerUi::new("/{_:.*}").url("/api-docs/openapi.json", ApiDoc::openapi()))
             .app_data(db_pool.clone())
+            .app_data(mail_client.clone())
     })
     .listen(listener)?
     .run();

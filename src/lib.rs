@@ -30,6 +30,7 @@ static RE_UUID_V4: Lazy<Regex> = Lazy::new(|| Regex::new(r"([a-fA-F0-9-]{4,12}){
 pub mod configuration;
 pub mod startup;
 pub mod telemetry;
+
 pub mod routes {
     pub mod health;
     pub use health::echo;
