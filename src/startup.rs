@@ -13,6 +13,7 @@ use crate::{
 };
 use actix_web::{dev::Server, web, App, HttpServer};
 use mailjet_client::{MailjetClient, MailjetClientBuilder};
+use secrecy::ExposeSecret;
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool};
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
@@ -44,6 +45,7 @@ impl Application {
         )
         .with_api_version(&configuration.email_client.target_api)
         .with_email_name("La Coctelera")
+        .with_email_address(configuration.email_client.admin_address.expose_secret())
         .with_https_enforcing(true)
         .build()?;
 

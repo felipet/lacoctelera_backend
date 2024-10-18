@@ -92,7 +92,7 @@ pub mod domain {
     pub mod tag;
 
     pub use author::{Author, AuthorBuilder, SocialProfile};
-    pub use error::DataDomainError;
+    pub use error::{DataDomainError, ServerError};
     pub use ingredient::{IngCategory, Ingredient};
     pub use recipe::{QuantityUnit, Recipe, RecipeCategory, RecipeContains, RecipeQuery, StarRate};
     pub use tag::Tag;

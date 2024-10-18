@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use actix_web::{http::StatusCode, ResponseError};
 use thiserror::Error;
 use validator::ValidationErrors;
 
@@ -27,4 +28,18 @@ pub enum DataDomainError {
     InvalidRecipeCategory,
     #[error("The data provided in the form is invalid")]
     InvalidFormData,
+}
+
+#[derive(Error, Debug)]
+pub enum ServerError {
+    #[error("Error from a DB query")]
+    DbError,
+}
+
+impl ResponseError for ServerError {
+    fn status_code(&self) -> actix_web::http::StatusCode {
+        match self {
+            ServerError::DbError => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
 }

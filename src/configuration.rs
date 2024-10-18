@@ -158,6 +158,7 @@ pub struct EmailClientSettings {
     pub api_key: SecretString,
     pub user_agent: String,
     pub target_api: String,
+    pub admin_address: SecretString,
 }
 
 impl Settings {
