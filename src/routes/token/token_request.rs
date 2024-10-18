@@ -2,10 +2,27 @@
 
 use crate::domain::auth::TokenRequestData;
 use actix_web::{
-    get, http::header::ContentType, post, web::Form, HttpRequest, HttpResponse, Responder,
+    get, http::header::ContentType, post, web::Data, web::Form, HttpRequest, HttpResponse,
+    Responder,
 };
-use tracing::{debug, info};
+use sqlx::MySqlPool;
+use tracing::{debug, error, info};
 
+/// GET for the API's /token/request endpoint.
+///
+/// # Description
+///
+/// This endpoint offers a simple HTML form that allows clients interested in accessing the restricted endpoints to
+/// request an API token.
+#[utoipa::path(
+    tag = "Token",
+    responses(
+        (
+            status = 200,
+            description = "A simple HTML page with a form."
+        )
+    )
+)]
 #[get("/request")]
 pub async fn token_req_get() -> impl Responder {
     HttpResponse::Ok()
