@@ -159,6 +159,7 @@ pub struct EmailClientSettings {
     pub user_agent: String,
     pub target_api: String,
     pub admin_address: SecretString,
+    pub sandbox_mode: Option<bool>,
 }
 
 impl Settings {

@@ -34,12 +34,15 @@ pub enum DataDomainError {
 pub enum ServerError {
     #[error("Error from a DB query")]
     DbError,
+    #[error("Error from the email client")]
+    EmailClientError,
 }
 
 impl ResponseError for ServerError {
     fn status_code(&self) -> actix_web::http::StatusCode {
         match self {
             ServerError::DbError => StatusCode::INTERNAL_SERVER_ERROR,
+            ServerError::EmailClientError => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }

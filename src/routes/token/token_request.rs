@@ -2,12 +2,13 @@
 
 use crate::domain::{auth::TokenRequestData, ServerError};
 use actix_web::{
-    get, http::header::ContentType, post, web::Data, web::Form, HttpResponse, Responder,
+    get, http::header::ContentType, post, web, web::Data, web::Form, HttpRequest, HttpResponse,
+    Responder,
 };
 use chrono::Local;
 use mailjet_client::{data_objects, MailjetClient};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use serde_json::json;
+use serde::Deserialize;
 use sqlx::{Executor, MySql, MySqlPool, Transaction};
 use tracing::{debug, error, info};
 use uuid::Uuid;
@@ -62,13 +63,14 @@ pub async fn token_req_get() -> impl Responder {
 )]
 #[post("/request")]
 pub async fn token_req_post(
+    req: HttpRequest,
     form: Form<TokenRequestData>,
     pool: Data<MySqlPool>,
     mail_client: Data<MailjetClient>,
 ) -> Result<HttpResponse, ServerError> {
-    // 2: Generate an email validation token
     info!("An API token was requested by {}", form.email());
 
+    // Check if the client is already registered in the DB.
     let user_id = match check_existing_user(&pool, form.email()).await {
         Ok(id) => id,
         Err(e) => {
@@ -77,9 +79,10 @@ pub async fn token_req_post(
         }
     };
 
-    match user_id {
+    let token = match user_id {
+        // Process to register a new request in the DB.
         None => {
-            debug!("The email was not registered previously");
+            debug!("The given email was not registered in the DB");
             let mut transaction = pool.begin().await.map_err(|e| {
                 error!("{e}");
                 ServerError::DbError
@@ -101,15 +104,47 @@ pub async fn token_req_post(
                 error!("{e}");
                 ServerError::DbError
             })?;
+
+            token
         }
-        Some(_) => {
-            info!("The client is already registered in the system");
-            return Ok(HttpResponse::Ok()
-                .json(json!({"message": "The given email is already registered in the system"})));
+        // Ignore the request.
+        Some(id) => {
+            info!("The client is already registered in the system ({id})");
+            return Ok(HttpResponse::Ok().body(format!(
+                "The given email is already registered in the system. If you have any issue to use your existing API \
+                token, please contact the system administrator: {}",
+                mail_client
+                    .email_address
+                    .as_deref()
+                    .expect("Missing email address of the system administrator")
+            )));
         }
     };
 
-    let mut mail = data_objects::MessageBuilder::default()
+    // Compose the confirmation link.
+    let link = format!(
+        "{}/validate?email={}&token={token}",
+        req.full_url(),
+        form.email()
+    );
+
+    // Finally, send the confirmation email to the recipient.
+    match send_confirmation_email(mail_client, &link, form.email()).await {
+        Ok(_) => Ok(HttpResponse::Accepted()
+            .body("Please, check your email's inbox and confirm your request.")),
+        Err(_) => Ok(HttpResponse::InternalServerError()
+            .body("Something went wrong, please try again later.")),
+    }
+}
+
+#[tracing::instrument(skip(mail_client))]
+async fn send_confirmation_email(
+    mail_client: Data<MailjetClient>,
+    confirmation_link: &str,
+    recipient: &str,
+) -> Result<(), ServerError> {
+    // Build a new message.
+    let mail = data_objects::MessageBuilder::default()
         .with_from(
             mail_client
                 .email_address
@@ -117,11 +152,16 @@ pub async fn token_req_post(
                 .expect("Missing email address of the backend service"),
             mail_client.email_name.as_deref(),
         )
-        .with_to(form.email(), None)
-        .with_text_body("Your request will be analysed, and you'll receive an answer soon.")
+        .with_to(recipient, None)
+        .with_text_body(&format!(
+            r#"Greetings from La Coctelera!
+You are receiving this email because a token request to access the API of La Coctelera was received.
+If you don't recognize this service, feel free to ignore this message.
+To complete the request process, please, visit the following link to validate your email: {confirmation_link}
+        "#
+        ))
+        .with_subject("Verify your email")
         .build();
-    // This line might suffer changes after https://github.com/felipet/mailjet_client/issues/2 gets implemented.
-    mail.subject = Some("Token request received".into());
 
     let mail_req = data_objects::SendEmailParams {
         sandbox_mode: Some(false),
@@ -130,17 +170,17 @@ pub async fn token_req_post(
         messages: Vec::from([mail]),
     };
 
-    let result = mail_client.send_email(&mail_req).await;
-
-    match result {
+    match mail_client.send_email(&mail_req).await {
         Ok(info) => {
-            info!("Email sent to {}", form.email());
+            info!("Email sent to {recipient}");
             debug!("{:?}", info);
+            Ok(())
         }
-        Err(e) => error!("Failed to send email to {} ({e})", form.email()),
+        Err(e) => {
+            error!("Failed to send email to {recipient} ({e})");
+            Err(ServerError::EmailClientError)
+        }
     }
-
-    Ok(HttpResponse::Accepted().finish())
 }
 
 #[post("/validate")]
