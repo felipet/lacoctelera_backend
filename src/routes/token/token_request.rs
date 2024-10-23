@@ -1,13 +1,16 @@
 //! Request a new API token for the restricted endpoints.
 
-use crate::domain::{auth::TokenRequestData, DataDomainError, ServerError};
+use crate::{
+    domain::{auth::TokenRequestData, DataDomainError, ServerError},
+    utils::mailing::{notify_pending_req, send_confirmation_email},
+};
 use actix_web::{
     get, http::header::ContentType, post, web, web::Data, web::Form, HttpRequest, HttpResponse,
     Responder,
 };
 use anyhow::Context;
 use chrono::{DateTime, Local, TimeDelta};
-use mailjet_client::{data_objects, MailjetClient};
+use mailjet_client::MailjetClient;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
@@ -116,98 +119,6 @@ pub async fn token_req_post(
     send_confirmation_email(mail_client, &link, form.email()).await?;
 
     Ok(HttpResponse::Accepted().body("Please, check your email's inbox and confirm your request."))
-}
-
-#[tracing::instrument(skip(mail_client, confirmation_link))]
-async fn send_confirmation_email(
-    mail_client: Data<MailjetClient>,
-    confirmation_link: &str,
-    recipient: &str,
-) -> Result<(), ServerError> {
-    // Build a new message.
-    let mail = data_objects::MessageBuilder::default()
-        .with_from(
-            mail_client
-                .email_address
-                .as_deref()
-                .expect("Missing email address of the backend service"),
-            mail_client.email_name.as_deref(),
-        )
-        .with_to(recipient, None)
-        .with_text_body(&format!(
-            r#"Greetings from La Coctelera!
-You are receiving this email because a token request to access the API of La Coctelera was received.
-If you don't recognize this service, feel free to ignore this message.
-To complete the request process, please, visit the following link to validate your email: {confirmation_link}
-        "#
-        ))
-        .with_subject("Verify your email")
-        .build();
-
-    let mail_req = data_objects::SendEmailParams {
-        sandbox_mode: Some(false),
-        advance_error_handling: Some(false),
-        globals: None,
-        messages: Vec::from([mail]),
-    };
-
-    match mail_client.send_email(&mail_req).await {
-        Ok(info) => {
-            info!("Email sent to {recipient}");
-            debug!("{:?}", info);
-            Ok(())
-        }
-        Err(e) => {
-            error!("Failed to send email to {recipient} ({e})");
-            Err(ServerError::EmailClientError)
-        }
-    }
-}
-
-#[tracing::instrument(skip(mail_client))]
-async fn notify_pending_req(
-    mail_client: Data<MailjetClient>,
-    id: &Uuid,
-) -> Result<(), ServerError> {
-    let mail = data_objects::MessageBuilder::default()
-    .with_from(
-        mail_client
-            .email_address
-            .as_deref()
-            .expect("Missing email address of the backend service"),
-        mail_client.email_name.as_deref(),
-    )
-    .with_to(
-        mail_client
-            .email_address
-            .as_deref()
-            .expect("Missing email address of the backend service"),
-        mail_client.email_name.as_deref(),
-    )
-    .with_subject("New client of the API validated")
-    .with_text_body(
-        &format!("A new client ({id}) has validated the account. Proceed to the evaluation of the request.")
-    )
-    .build();
-
-    let mail_req = data_objects::SendEmailParams {
-        sandbox_mode: Some(false),
-        advance_error_handling: Some(false),
-        globals: None,
-        messages: Vec::from([mail]),
-    };
-
-    match mail_client.send_email(&mail_req).await {
-        Ok(info) => {
-            info!("Email sent to the admin");
-            debug!("{:?}", info);
-            Ok(())
-        }
-        Err(e) => {
-            error!("Failed to send email to the admin ({e})");
-            Err(ServerError::EmailClientError)
-        }
-    }
 }
 
 /// Endpoint to validate a token request sent to an email account.
