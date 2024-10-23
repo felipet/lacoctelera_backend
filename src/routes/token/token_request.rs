@@ -19,15 +19,6 @@ use uuid::Uuid;
 ///
 /// This endpoint offers a simple HTML form that allows clients interested in accessing the restricted endpoints to
 /// request an API token.
-#[utoipa::path(
-    tag = "Token",
-    responses(
-        (
-            status = 200,
-            description = "A simple HTML page with a form."
-        )
-    )
-)]
 #[get("/request")]
 pub async fn token_req_get() -> impl Responder {
     HttpResponse::Ok()
@@ -41,26 +32,7 @@ pub async fn token_req_get() -> impl Responder {
 ///
 /// Once a client fills the requested data, a confirmation email is sent to the given email address. If the email gets
 /// confirmed, the request gets actually registered in the system, and waits until the sysadmin approves or rejects it.
-#[utoipa::path(
-    tag = "Token",
-    params(
-        TokenRequestData,
-    ),
-    responses(
-        (
-            status = 200,
-            description = ""
-        ),
-        (
-            status = 202,
-            description = "The request was successfully registered, and a confirmation email was sent to the given email address."
-        ),
-        (
-            status = 400,
-            description = ""
-        ),
-    )
-)]
+#[tracing::instrument(skip(req, form, pool, mail_client))]
 #[post("/request")]
 pub async fn token_req_post(
     req: HttpRequest,
