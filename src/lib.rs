@@ -79,7 +79,7 @@ pub mod routes {
     pub mod token {
         pub mod token_request;
 
-        pub use token_request::{token_req_get, token_req_post};
+        pub use token_request::{req_validation, token_req_get, token_req_post};
     }
 }
 

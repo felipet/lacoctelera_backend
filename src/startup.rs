@@ -39,7 +39,7 @@ impl Application {
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr().unwrap().port();
 
-        let mail_client = MailjetClientBuilder::new(
+        let mut mail_client = MailjetClientBuilder::new(
             configuration.email_client.api_user,
             configuration.email_client.api_key,
         )
@@ -48,6 +48,10 @@ impl Application {
         .with_email_address(configuration.email_client.admin_address.expose_secret())
         .with_https_enforcing(true)
         .build()?;
+
+        if configuration.email_client.sandbox_mode.unwrap_or_default() {
+            mail_client.enable_sandbox_mode();
+        }
 
         let server = run(
             listener,
@@ -101,7 +105,8 @@ pub async fn run(
             .service(
                 web::scope("/token")
                     .service(routes::token::token_req_get)
-                    .service(routes::token::token_req_post),
+                    .service(routes::token::token_req_post)
+                    .service(routes::token::req_validation),
             )
             .service(SwaggerUi::new("/{_:.*}").url("/api-docs/openapi.json", ApiDoc::openapi()))
             .app_data(db_pool.clone())
