@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use actix_web::{http::StatusCode, ResponseError};
+use actix_web::{http::StatusCode, HttpResponse, ResponseError};
 use thiserror::Error;
 use validator::ValidationErrors;
 
@@ -28,6 +28,10 @@ pub enum DataDomainError {
     InvalidRecipeCategory,
     #[error("The data provided in the form is invalid")]
     InvalidFormData,
+    #[error("Expired access token")]
+    ExpiredAccess,
+    #[error("Wrong access token")]
+    InvalidAccessCredentials,
 }
 
 #[derive(Error, Debug)]
@@ -44,5 +48,10 @@ impl ResponseError for ServerError {
             ServerError::DbError => StatusCode::INTERNAL_SERVER_ERROR,
             ServerError::EmailClientError => StatusCode::INTERNAL_SERVER_ERROR,
         }
+    }
+
+    fn error_response(&self) -> HttpResponse<actix_web::body::BoxBody> {
+        HttpResponse::InternalServerError()
+            .body("Detected an error in the server, please, try again later")
     }
 }
