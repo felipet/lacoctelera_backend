@@ -35,7 +35,7 @@ struct TokenValidationData {
 pub async fn token_req_get() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType::html())
-        .body(include_str!("token_request.html"))
+        .body(include_str!("../../../static/token_request.html"))
 }
 
 /// POST for the API's /token/request endpoint.
@@ -96,8 +96,8 @@ pub async fn token_req_post(
         Some(id) => {
             info!("The client is already registered in the system ({id})");
             return Ok(HttpResponse::Ok().body(format!(
-                include_str!("./message_template.html"),
-                include_str!("./style.css"),
+                include_str!("../../../static/message_template.html"),
+                include_str!("../../../static/resources/style.css"),
                 "<h3>The given email is already registered in the system.</h3> \
                 <h4>If you have any issue to use your existing API token, please contact the system administrator
                 </h4>")),
@@ -117,8 +117,8 @@ pub async fn token_req_post(
     send_confirmation_email(mail_client, &link, form.email()).await?;
 
     Ok(HttpResponse::Accepted().body(format!(
-        include_str!("./message_template.html"),
-        include_str!("./style.css"),
+        include_str!("../../../static/message_template.html"),
+        include_str!("../../../static/resources/style.css"),
         "<h3>Please, check your email's inbox and confirm your request.</h3>"
     )))
 }
@@ -177,8 +177,8 @@ pub async fn req_validation(
     );
 
     Ok(HttpResponse::Accepted().body(format!(
-        include_str!("./message_template.html"),
-        include_str!("./style.css"),
+        include_str!("../../../static/message_template.html"),
+        include_str!("../../../static/resources/style.css"),
         message
     )))
 }
