@@ -91,11 +91,24 @@ pub mod domain {
     pub mod recipe;
     pub mod tag;
 
+    pub use auth::ClientId;
     pub use author::{Author, AuthorBuilder, SocialProfile};
     pub use error::{DataDomainError, ServerError};
     pub use ingredient::{IngCategory, Ingredient};
     pub use recipe::{QuantityUnit, Recipe, RecipeCategory, RecipeContains, RecipeQuery, StarRate};
     pub use tag::Tag;
+
+    /// Length of the string that represents a client ID.
+    pub static ID_LENGTH: usize = 8;
+}
+
+/// Module with utilities.
+pub mod utils {
+    pub mod mailing {
+        mod mailing;
+
+        pub use mailing::*;
+    }
 }
 
 /// Struct that encapsulates valid authentication methods.

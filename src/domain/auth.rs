@@ -1,10 +1,11 @@
 //! Data objects related to the authentication logic.
 
+use crate::{domain::ID_LENGTH, DataDomainError};
 use core::fmt;
-
-use crate::DataDomainError;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use utoipa::IntoParams;
+use uuid::Uuid;
 use validator::Validate;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Validate, IntoParams)]
@@ -54,5 +55,36 @@ impl fmt::Display for TokenRequestData {
             "Request explanation: \"{}\" by {}",
             self.explanation, self.email
         )
+    }
+}
+
+/// Simple type to represent IDs for the API clients.
+#[derive(Clone, Debug, Deserialize)]
+pub struct ClientId(String);
+
+impl ClientId {
+    pub fn new() -> Self {
+        let mut id = Uuid::now_v7().to_string();
+        id.truncate(ID_LENGTH);
+
+        Self(id)
+    }
+}
+
+impl FromStr for ClientId {
+    type Err = DataDomainError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() != ID_LENGTH {
+            Err(DataDomainError::InvalidId)
+        } else {
+            Ok(ClientId(s.to_string()))
+        }
+    }
+}
+
+impl fmt::Display for ClientId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

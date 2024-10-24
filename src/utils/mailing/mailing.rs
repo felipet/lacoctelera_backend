@@ -6,11 +6,10 @@
 
 //! Functions related to sending emails using [MailjetClient].
 
-use crate::domain::ServerError;
+use crate::domain::{ClientId, ServerError};
 use actix_web::web::Data;
 use mailjet_client::{data_objects, MailjetClient};
 use tracing::{debug, error, info};
-use uuid::Uuid;
 
 #[tracing::instrument(skip(mail_client, confirmation_link))]
 pub async fn send_confirmation_email(
@@ -58,7 +57,7 @@ pub async fn send_confirmation_email(
 #[tracing::instrument(skip(mail_client))]
 pub async fn notify_pending_req(
     mail_client: Data<MailjetClient>,
-    id: &Uuid,
+    id: &ClientId,
 ) -> Result<(), ServerError> {
     let mail = data_objects::MessageBuilder::default()
     .with_from(

@@ -1,7 +1,7 @@
 //! Request a new API token for the restricted endpoints.
 
 use crate::{
-    domain::{auth::TokenRequestData, DataDomainError, ServerError},
+    domain::{auth::TokenRequestData, ClientId, DataDomainError, ServerError},
     utils::mailing::{notify_pending_req, send_confirmation_email},
 };
 use actix_web::{
@@ -17,7 +17,6 @@ use serde::Deserialize;
 use sqlx::{Executor, MySql, MySqlPool, Transaction};
 use std::{error::Error, str::FromStr};
 use tracing::{debug, error, info};
-use uuid::Uuid;
 
 /// Payload of the token validation POST.
 #[derive(Deserialize, Debug)]
@@ -175,13 +174,16 @@ fn generate_token() -> String {
 
 /// Check if the user attempted to or is registered already in the DB.
 #[tracing::instrument(skip(pool))]
-async fn check_existing_user(pool: &MySqlPool, email: &str) -> Result<Option<Uuid>, sqlx::Error> {
+async fn check_existing_user(
+    pool: &MySqlPool,
+    email: &str,
+) -> Result<Option<ClientId>, sqlx::Error> {
     let existing_id = sqlx::query!("SELECT id FROM ApiUser WHERE email = ?", email)
         .fetch_optional(pool)
         .await?;
 
     match existing_id {
-        Some(record) => Ok(Some(Uuid::parse_str(&record.id).unwrap())),
+        Some(record) => Ok(Some(ClientId::from_str(&record.id).unwrap())),
         None => Ok(None),
     }
 }
@@ -191,8 +193,8 @@ async fn check_existing_user(pool: &MySqlPool, email: &str) -> Result<Option<Uui
 async fn register_new_request(
     transaction: &mut Transaction<'static, MySql>,
     form: &TokenRequestData,
-) -> Result<Uuid, ServerError> {
-    let id = Uuid::new_v4();
+) -> Result<ClientId, ServerError> {
+    let id = ClientId::new();
     let query = sqlx::query!(
         r#"
         INSERT INTO ApiUser (id, name,email,validated,enabled,explanation) VALUES
@@ -218,7 +220,7 @@ async fn store_validation_token(
     transaction: &mut Transaction<'static, MySql>,
     token: &SecretString,
     expiry: TimeDelta,
-    client_id: &Uuid,
+    client_id: &ClientId,
 ) -> Result<(), ServerError> {
     let query = sqlx::query!(
         r#"
@@ -248,7 +250,7 @@ async fn check_email_validation(
     pool: &MySqlPool,
     token: &str,
     client_email: &str,
-) -> Result<Uuid, Box<dyn Error>> {
+) -> Result<ClientId, Box<dyn Error>> {
     // First, retrieve the credentials for the client using the email.
     let query = sqlx::query!(
         r#"
@@ -288,10 +290,8 @@ async fn check_email_validation(
         };
         if (valid_until - Local::now()) < TimeDelta::days(1) {
             info!("Validation received in time");
-            Ok(
-                Uuid::from_str(&record.client_id)
-                    .expect("Failed to parse Uuid from DB client's ID"),
-            )
+            Ok(ClientId::from_str(&record.client_id)
+                .expect("Failed to parse ClientId from DB client's ID"))
         } else {
             Err(Box::new(ServerError::DbError))
         }
@@ -302,7 +302,7 @@ async fn check_email_validation(
 #[tracing::instrument(skip(transaction))]
 async fn validate_client_account(
     transaction: &mut Transaction<'static, MySql>,
-    id: &Uuid,
+    id: &ClientId,
 ) -> Result<(), ServerError> {
     let query = sqlx::query!(
         r#"
