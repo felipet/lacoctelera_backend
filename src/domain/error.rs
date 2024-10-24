@@ -51,7 +51,10 @@ impl ResponseError for ServerError {
     }
 
     fn error_response(&self) -> HttpResponse<actix_web::body::BoxBody> {
-        HttpResponse::InternalServerError()
-            .body("Detected an error in the server, please, try again later")
+        HttpResponse::InternalServerError().body(format!(
+            include_str!("../routes/token/message_template.html"),
+            include_str!("../routes/token/style.css"),
+            "<h3>Detected an error in the server, please, try again later.</h3>"
+        ))
     }
 }

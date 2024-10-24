@@ -97,13 +97,12 @@ pub async fn token_req_post(
         Some(id) => {
             info!("The client is already registered in the system ({id})");
             return Ok(HttpResponse::Ok().body(format!(
-                "The given email is already registered in the system. If you have any issue to use your existing API \
-                token, please contact the system administrator: {}",
-                mail_client
-                    .email_address
-                    .as_deref()
-                    .expect("Missing email address of the system administrator")
-            )));
+                include_str!("./message_template.html"),
+                include_str!("./style.css"),
+                "<h3>The given email is already registered in the system.</h3> \
+                <h4>If you have any issue to use your existing API token, please contact the system administrator
+                </h4>")),
+            );
         }
     };
 
@@ -118,7 +117,11 @@ pub async fn token_req_post(
     // Finally, send the confirmation email to the recipient.
     send_confirmation_email(mail_client, &link, form.email()).await?;
 
-    Ok(HttpResponse::Accepted().body("Please, check your email's inbox and confirm your request."))
+    Ok(HttpResponse::Accepted().body(format!(
+        include_str!("./message_template.html"),
+        include_str!("./style.css"),
+        "<h3>Please, check your email's inbox and confirm your request.</h3>"
+    )))
 }
 
 /// Endpoint to validate a token request sent to an email account.
@@ -154,8 +157,11 @@ pub async fn req_validation(
 
     notify_pending_req(mail_client, &client_id).await?;
 
-    Ok(HttpResponse::Accepted()
-        .body("Your request is waiting for approval. You'll receive an email soon."))
+    Ok(HttpResponse::Accepted().body(format!(
+        include_str!("./message_template.html"),
+        include_str!("./style.css"),
+        "<h3>Your request is waiting for approval. You'll receive an email soon.</h3>"
+    )))
 }
 
 /// Generate a token
