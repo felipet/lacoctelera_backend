@@ -16,7 +16,7 @@ CREATE TABLE `ApiUser` (
 DROP TABLE IF EXISTS `ApiToken`;
 CREATE TABLE `ApiToken` (
     `created` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `api_token` varchar(25) NOT NULL,
+    `api_token` varchar(100) NOT NULL,
     `valid_until` TIMESTAMP NOT NULL,
     `client_id` VARCHAR(36) NOT NULL,
     CONSTRAINT `ApiToken_PK` PRIMARY KEY (`api_token`),
