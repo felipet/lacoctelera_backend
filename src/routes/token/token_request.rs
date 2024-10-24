@@ -1,6 +1,7 @@
 //! Request a new API token for the restricted endpoints.
 
 use crate::{
+    authentication::{generate_new_token_hash, generate_token},
     domain::{auth::TokenRequestData, ClientId, DataDomainError, ServerError},
     utils::mailing::{notify_pending_req, send_confirmation_email},
 };
@@ -11,7 +12,6 @@ use actix_web::{
 use anyhow::Context;
 use chrono::{DateTime, Local, TimeDelta};
 use mailjet_client::MailjetClient;
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
 use sqlx::{Executor, MySql, MySqlPool, Transaction};
@@ -145,9 +145,20 @@ pub async fn req_validation(
         .await
         .context("Failed to acquire a connection from the pool")?;
 
-    let token: SecretString = SecretString::from(generate_token());
+    // Generate a new token using the client's ID and a new random token.
+    let token = SecretString::from(generate_token());
+    // Show this to the client. It will be gone for ever.
+    let token_string = format!("{}:{}", client_id, token.expose_secret());
+    // Hash the token part, as that is what we'll store in the DB.
+    let token_hashed = generate_new_token_hash(token)?;
     // Store the new token.
-    store_validation_token(&mut transaction, &token, TimeDelta::days(100), &client_id).await?;
+    store_validation_token(
+        &mut transaction,
+        &token_hashed,
+        TimeDelta::days(100),
+        &client_id,
+    )
+    .await?;
     validate_client_account(&mut transaction, &client_id).await?;
     transaction
         .commit()
@@ -156,20 +167,20 @@ pub async fn req_validation(
 
     notify_pending_req(mail_client, &client_id).await?;
 
+    let message = format!(
+        r#"
+        <h3>This is your access token for the API: {token_string}</h3>
+        <h4>After this page gets closed, it will be impossible to recover it, save it in a secure place!</h4>
+        <h3>However, your account will remain disabled until your request gets approved.</h3>
+        <h4>You'll receive an email soon.</h4>
+        "#
+    );
+
     Ok(HttpResponse::Accepted().body(format!(
         include_str!("./message_template.html"),
         include_str!("./style.css"),
-        "<h3>Your request is waiting for approval. You'll receive an email soon.</h3>"
+        message
     )))
-}
-
-/// Generate a token
-fn generate_token() -> String {
-    let mut rng = thread_rng();
-    std::iter::repeat_with(|| rng.sample(Alphanumeric))
-        .map(char::from)
-        .take(25)
-        .collect()
 }
 
 /// Check if the user attempted to or is registered already in the DB.
@@ -234,6 +245,22 @@ async fn store_validation_token(
     );
 
     transaction.execute(query).await.map_err(|e| {
+        error!("{e}");
+        ServerError::DbError
+    })?;
+
+    Ok(())
+}
+
+/// Delete a token that will be no longer used.
+#[tracing::instrument(skip(pool, token))]
+async fn delete_token(pool: &MySqlPool, token: SecretString) -> Result<(), ServerError> {
+    let query = sqlx::query!(
+        "DELETE FROM ApiToken WHERE api_token = ?",
+        token.expose_secret()
+    );
+
+    pool.execute(query).await.map_err(|e| {
         error!("{e}");
         ServerError::DbError
     })?;

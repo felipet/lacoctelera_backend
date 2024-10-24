@@ -111,6 +111,12 @@ pub mod utils {
     }
 }
 
+pub mod authentication {
+    mod token_auth;
+
+    pub use token_auth::*;
+}
+
 /// Struct that encapsulates valid authentication methods.
 ///
 /// # Description
