@@ -198,7 +198,18 @@ impl TryFrom<&str> for QueryId {
     ),
     info(
         title = "La Coctelera API",
-        description = "## A REST API for La Coctelera backend service.",
+        description = r#"## A REST API for La Coctelera backend service.
+La Coctelera is a web service that aims to share a public data base with recipes for cocktails. The service is
+split in two parts: the backend, which exposes a public REST API; and the frontend, which offers an
+user-friendly web interface.
+
+If you got here, you're likely interested on using the API to connect your own app or service to the data base.
+To protect the DB against SPAM and malicious people, all the endpoints that modify data are protected. If you
+just need to retrieve recipes and data from the DB, go ahead and use the public API. And if you aim to go
+deeper and be able to modify the DB, request an API token using this URL: /token/request.
+
+If you have any troubles with the access token, or questions about how to use the API, contact the sysadmin:
+"#,
         contact(name = "Felipe Torres González", email = "admin@nubecita.eu")
     ),
     modifiers(&SecurityAddon)
