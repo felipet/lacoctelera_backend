@@ -193,14 +193,18 @@ pub async fn enable_client(pool: &MySqlPool, client_id: &ClientId) -> Result<(),
 pub async fn check_existing_user(
     pool: &MySqlPool,
     email: &str,
-) -> Result<Option<ClientId>, sqlx::Error> {
+) -> Result<ClientId, Box<dyn Error>> {
     let existing_id = sqlx::query!("SELECT id FROM ApiUser WHERE email = ?", email)
         .fetch_optional(pool)
-        .await?;
+        .await
+        .map_err(|e| {
+            error!("{e}");
+            ServerError::DbError
+        })?;
 
     match existing_id {
-        Some(record) => Ok(Some(ClientId::from_str(&record.id).unwrap())),
-        None => Ok(None),
+        Some(record) => Ok(ClientId::from_str(&record.id).unwrap()),
+        None => Err(Box::new(DataDomainError::InvalidEmail)),
     }
 }
 

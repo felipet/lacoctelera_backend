@@ -32,6 +32,8 @@ pub enum DataDomainError {
     ExpiredAccess,
     #[error("Wrong access token")]
     InvalidAccessCredentials,
+    #[error("Email not registered in the DB")]
+    InvalidEmail,
     #[error("Account disabled")]
     AccountDisabled,
 }

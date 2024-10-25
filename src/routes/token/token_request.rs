@@ -1,4 +1,34 @@
 //! Request a new API token for the restricted endpoints.
+//!
+//! # Description
+//!
+//! This module includes the handlers that automate the process of requesting and delivering API access tokens.
+//!
+//! ## API Token
+//!
+//! Some of the API's endpoints are restricted to public access, and require clients to identify. Restricted
+//! endpoints require an extra parameter as part of the request: the API token. The token is composed of two
+//! components: client's ID and the access token.
+//!
+//! That token is use by the backend to identify the client, and check whether it is approved to access the restricted
+//! endpoints or not.
+//!
+//! ## API Token Request
+//!
+//! Anyone interested on using the restricted endpoints needs to request an API token. To ease such process, a
+//! specific endpoint is enabled in the backend that serves some simple HTML pages: `/token/request`. That endpoint
+//! is accessible via a web browser, and includes a simple form that a client must fill before issuing a token request.
+//!
+//! The request gets registered in the system, but partially, until the client verifies the used email account. The
+//! backend sends an email after registering a new request with a validation link that will be available for a day.
+//! The client needs to visit such URL in order to complete the request process because during the validation process,
+//! the real API token gets generated. It is shown only once to the client, and the hash gets stored into the DB. If
+//! the client fails to complete the validation process, or looses the token, the process needs to be restarted.
+//!
+//! Once the email gets validated, the request is fully registered and sent to evaluation. The evaluation process is
+//! manual and involves the system administrator. The result of the evaluation is notified via email to the client. If
+//! the request gets approved, the client is ready to start using the restricted endpoints using the token that was
+//! given at the end of the validation process.
 
 use crate::{
     authentication::*,
@@ -22,7 +52,7 @@ use tracing::{debug, error, info};
 #[derive(Deserialize, Debug)]
 struct TokenValidationData {
     pub email: String,
-    pub token: String,
+    pub token: SecretString,
 }
 
 /// GET for the API's /token/request endpoint.
@@ -51,58 +81,49 @@ pub async fn token_req_post(
     form: Form<TokenRequestData>,
     pool: Data<MySqlPool>,
     mail_client: Data<MailjetClient>,
-) -> Result<HttpResponse, ServerError> {
+) -> Result<HttpResponse, Box<dyn Error>> {
     info!("An API token was requested by {}", form.email());
 
     // Check if the client is already registered in the DB.
-    let user_id = match check_existing_user(&pool, form.email()).await {
-        Ok(id) => id,
-        Err(e) => {
-            error!("{e}");
-            return Err(ServerError::DbError);
-        }
-    };
-
-    let token = match user_id {
-        // Process to register a new request in the DB.
-        None => {
-            debug!("The given email was not registered in the DB");
-            let mut transaction = pool.begin().await.map_err(|e| {
-                error!("{e}");
-                ServerError::DbError
-            })?;
-            let client_id = register_new_request(&mut transaction, &form)
-                .await
-                .map_err(|e| {
-                    error!("{e}");
-                    ServerError::DbError
-                })?;
-            let token = SecretString::from(generate_token());
-            // Store the temporal validation token with an expiry of 1 day.
-            store_validation_token(&mut transaction, &token, TimeDelta::days(1), &client_id)
-                .await
-                .map_err(|e| {
-                    error!("{e}");
-                    ServerError::DbError
-                })?;
-            transaction.commit().await.map_err(|e| {
-                error!("{e}");
-                ServerError::DbError
-            })?;
-
-            token
-        }
-        // Ignore the request.
-        Some(id) => {
-            info!("The client is already registered in the system ({id})");
-            return Ok(HttpResponse::Ok().body(format!(
+    match check_existing_user(&pool, form.email()).await {
+        Ok(id) => {
+            info!("A client ({id}) is already registered with the given email");
+            return Ok(HttpResponse::Found().body(format!(
                 include_str!("../../../static/message_template.html"),
-                "<h3>The given email is already registered in the system.</h3> \
-                <h4>If you have any issue to use your existing API token, please contact the system administrator
-                </h4>",)),
-            );
+                "The email is already registered in the system. Please, contact the sysadmin if you have any problem."
+            )));
         }
-    };
+        Err(e) => match e.downcast_ref() {
+            Some(DataDomainError::InvalidEmail) => {
+                debug!("The given email was not registered in the DB")
+            }
+            _ => return Err(e),
+        },
+    }
+
+    // It's a new client, let's register the new request.
+    let mut transaction = pool.begin().await.map_err(|e| {
+        error!("{e}");
+        ServerError::DbError
+    })?;
+    let client_id = register_new_request(&mut transaction, &form)
+        .await
+        .map_err(|e| {
+            error!("{e}");
+            ServerError::DbError
+        })?;
+    let token = SecretString::from(generate_token());
+    // Store the temporal validation token with an expiry of 1 day.
+    store_validation_token(&mut transaction, &token, TimeDelta::days(1), &client_id)
+        .await
+        .map_err(|e| {
+            error!("{e}");
+            ServerError::DbError
+        })?;
+    transaction.commit().await.map_err(|e| {
+        error!("{e}");
+        ServerError::DbError
+    })?;
 
     // Compose the confirmation link.
     let link = format!(
@@ -128,7 +149,7 @@ pub async fn token_req_post(
 /// This endpoint receives the token that was sent when a client registered a new request using `/token/request`, and
 /// if the token matches the stored in the DB, the client receives a new token that is shown only once and stored in
 /// the DB (replacing the previous one). This way, only the client knows the token.
-#[tracing::instrument(skip(req, pool))]
+#[tracing::instrument(skip(req, pool, mail_client))]
 #[get("/request/validate")]
 pub async fn req_validation(
     req: web::Query<TokenValidationData>,
@@ -137,6 +158,10 @@ pub async fn req_validation(
 ) -> Result<HttpResponse, Box<dyn Error>> {
     // First, check if the token is valid and received in time.
     let client_id = check_email_validation(&pool, &req.token, &req.email).await?;
+
+    // Once here, we are about to complete the validation process and deliver a real token to the client, let's
+    // delete the temporal token first.
+    delete_token(&pool, req.token.clone()).await?;
 
     let mut transaction = pool
         .begin()
@@ -204,7 +229,7 @@ async fn register_new_request(
 )]
 async fn check_email_validation(
     pool: &MySqlPool,
-    token: &str,
+    token: &SecretString,
     client_email: &str,
 ) -> Result<ClientId, Box<dyn Error>> {
     // First, retrieve the credentials for the client using the email.
@@ -225,11 +250,14 @@ async fn check_email_validation(
 
     let record = match query {
         Some(record) => record,
-        None => return Err(Box::new(ServerError::DbError)),
+        None => {
+            info!("The given email is not registered in the DB");
+            return Err(Box::new(DataDomainError::InvalidEmail));
+        }
     };
 
     // Given token does not match the saved one, reject the validation process.
-    if record.api_token != token {
+    if record.api_token != token.expose_secret() {
         info!(
             "The given access token for the client {} is not valid",
             &record.client_id
