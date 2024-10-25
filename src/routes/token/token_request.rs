@@ -165,18 +165,9 @@ pub async fn req_validation(
 
     notify_pending_req(mail_client, &client_id).await?;
 
-    let message = format!(
-        r#"
-        <h3>This is your access token for the API: {token_string}</h3>
-        <h4>After this page gets closed, it will be impossible to recover it, save it in a secure place!</h4>
-        <h3>However, your account will remain disabled until your request gets approved.</h3>
-        <h4>You'll receive an email soon.</h4>
-        "#
-    );
-
     Ok(HttpResponse::Accepted().body(format!(
-        include_str!("../../../static/message_template.html"),
-        message
+        include_str!("../../../static/secret_token.html"),
+        token_string
     )))
 }
 
