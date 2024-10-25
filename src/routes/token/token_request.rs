@@ -97,10 +97,9 @@ pub async fn token_req_post(
             info!("The client is already registered in the system ({id})");
             return Ok(HttpResponse::Ok().body(format!(
                 include_str!("../../../static/message_template.html"),
-                include_str!("../../../static/resources/style.css"),
                 "<h3>The given email is already registered in the system.</h3> \
                 <h4>If you have any issue to use your existing API token, please contact the system administrator
-                </h4>")),
+                </h4>",)),
             );
         }
     };
@@ -118,7 +117,6 @@ pub async fn token_req_post(
 
     Ok(HttpResponse::Accepted().body(format!(
         include_str!("../../../static/message_template.html"),
-        include_str!("../../../static/resources/style.css"),
         "<h3>Please, check your email's inbox and confirm your request.</h3>"
     )))
 }
@@ -178,7 +176,6 @@ pub async fn req_validation(
 
     Ok(HttpResponse::Accepted().body(format!(
         include_str!("../../../static/message_template.html"),
-        include_str!("../../../static/resources/style.css"),
         message
     )))
 }
