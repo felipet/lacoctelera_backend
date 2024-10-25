@@ -1,7 +1,7 @@
 //! Request a new API token for the restricted endpoints.
 
 use crate::{
-    authentication::{generate_new_token_hash, generate_token},
+    authentication::*,
     domain::{auth::TokenRequestData, ClientId, DataDomainError, ServerError},
     utils::mailing::{notify_pending_req, send_confirmation_email},
 };
