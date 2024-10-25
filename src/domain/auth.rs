@@ -71,6 +71,12 @@ impl ClientId {
     }
 }
 
+impl Default for ClientId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FromStr for ClientId {
     type Err = DataDomainError;
 

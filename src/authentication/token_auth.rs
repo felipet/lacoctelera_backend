@@ -151,7 +151,7 @@ pub async fn check_access(pool: &MySqlPool, token: SecretString) -> Result<(), B
 
     // First, check if the given pair client-token matches the saved one. This avoid giving information about disabled
     // accounts or expired tokens to people that has no access to the API.
-    verify_token(token_saved, token).map_err(|e| Box::new(e))?;
+    verify_token(token_saved, token).map_err(Box::new)?;
     debug!("The token is valid and registered to the client");
 
     // Second, check if the account is actually enabled.

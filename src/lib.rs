@@ -105,9 +105,9 @@ pub mod domain {
 /// Module with utilities.
 pub mod utils {
     pub mod mailing {
-        mod mailing;
+        mod mailing_utils;
 
-        pub use mailing::*;
+        pub use mailing_utils::*;
     }
 }
 
