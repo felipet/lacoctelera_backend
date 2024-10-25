@@ -1,6 +1,7 @@
 use crate::helpers::spawn_app;
 use chrono::{Local, TimeDelta};
 use lacoctelera::{authentication::*, domain::ClientId};
+use pretty_assertions::assert_eq;
 use secrecy::SecretString;
 use sqlx::{Executor, MySqlPool};
 use tracing::info;
@@ -54,8 +55,51 @@ async fn token_request_returns_200_for_existing_email() {
     // Attempt to register twice the same email.
     let response = test_app.post_token_request(&body).await;
 
-    // This time, the response shall be Ok (200).
-    assert_eq!(200, response.status().as_u16());
+    // This time, the response shall be 406, as the email is already used.
+    assert_eq!(406, response.status().as_u16());
+}
+
+#[actix_web::test]
+async fn register_new_token_request() {
+    let test_app = spawn_app().await;
+
+    let body = serde_json::json!({
+        "email": "janedoe@mail.com",
+        "explanation": "A_very_long_sentence_for_testing",
+    });
+    let email = "janedoe@mail.com";
+
+    let response = test_app.post_token_request(&body).await;
+
+    assert_eq!(202, response.status().as_u16());
+
+    let record = sqlx::query!(
+        "SELECT id, validated, enabled FROM ApiUser WHERE email = ?",
+        email
+    )
+    .fetch_optional(&test_app.db_pool)
+    .await
+    .expect("Failed to search test user data in the DB")
+    .unwrap();
+
+    assert_eq!(record.enabled, Some(0));
+    assert_eq!(record.validated, Some(0));
+    let client_id = record.id;
+
+    let record = sqlx::query!(
+        "SELECT api_token, valid_until FROM ApiToken WHERE client_id = ?",
+        client_id
+    )
+    .fetch_optional(&test_app.db_pool)
+    .await
+    .expect("Failed to search test user data in the DB")
+    .unwrap();
+
+    assert!(record.api_token.len() == 25);
+    assert_eq!(
+        record.valid_until.date_naive(),
+        Local::now().date_naive() + TimeDelta::days(1)
+    );
 }
 
 /// Test to check all the utility functions that handle tokens and the DB.

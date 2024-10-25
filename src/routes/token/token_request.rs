@@ -88,7 +88,7 @@ pub async fn token_req_post(
     match check_existing_user(&pool, form.email()).await {
         Ok(id) => {
             info!("A client ({id}) is already registered with the given email");
-            return Ok(HttpResponse::Found().body(format!(
+            return Ok(HttpResponse::NotAcceptable().body(format!(
                 include_str!("../../../static/message_template.html"),
                 "The email is already registered in the system. Please, contact the sysadmin if you have any problem."
             )));
