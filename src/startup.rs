@@ -11,6 +11,7 @@ use crate::{
     routes::{self, health},
     ApiDoc,
 };
+use actix_files as fs;
 use actix_web::{dev::Server, web, App, HttpServer};
 use mailjet_client::{MailjetClient, MailjetClientBuilder};
 use secrecy::ExposeSecret;
@@ -102,6 +103,7 @@ pub async fn run(
             .service(routes::recipe::options_recipe)
             .service(routes::recipe::head_recipe)
             .service(routes::recipe::post_recipe)
+            .service(fs::Files::new("/static", "./static/resources").show_files_listing())
             .service(
                 web::scope("/token")
                     .service(routes::token::token_req_get)

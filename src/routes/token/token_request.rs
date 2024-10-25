@@ -35,7 +35,7 @@ struct TokenValidationData {
 pub async fn token_req_get() -> impl Responder {
     HttpResponse::Ok()
         .content_type(ContentType::html())
-        .body(include_str!("token_request.html"))
+        .body(include_str!("../../../static/token_request.html"))
 }
 
 /// POST for the API's /token/request endpoint.
@@ -96,11 +96,10 @@ pub async fn token_req_post(
         Some(id) => {
             info!("The client is already registered in the system ({id})");
             return Ok(HttpResponse::Ok().body(format!(
-                include_str!("./message_template.html"),
-                include_str!("./style.css"),
+                include_str!("../../../static/message_template.html"),
                 "<h3>The given email is already registered in the system.</h3> \
                 <h4>If you have any issue to use your existing API token, please contact the system administrator
-                </h4>")),
+                </h4>",)),
             );
         }
     };
@@ -117,8 +116,7 @@ pub async fn token_req_post(
     send_confirmation_email(mail_client, &link, form.email()).await?;
 
     Ok(HttpResponse::Accepted().body(format!(
-        include_str!("./message_template.html"),
-        include_str!("./style.css"),
+        include_str!("../../../static/message_template.html"),
         "<h3>Please, check your email's inbox and confirm your request.</h3>"
     )))
 }
@@ -167,19 +165,9 @@ pub async fn req_validation(
 
     notify_pending_req(mail_client, &client_id).await?;
 
-    let message = format!(
-        r#"
-        <h3>This is your access token for the API: {token_string}</h3>
-        <h4>After this page gets closed, it will be impossible to recover it, save it in a secure place!</h4>
-        <h3>However, your account will remain disabled until your request gets approved.</h3>
-        <h4>You'll receive an email soon.</h4>
-        "#
-    );
-
     Ok(HttpResponse::Accepted().body(format!(
-        include_str!("./message_template.html"),
-        include_str!("./style.css"),
-        message
+        include_str!("../../../static/secret_token.html"),
+        token_string
     )))
 }
 
