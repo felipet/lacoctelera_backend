@@ -15,7 +15,7 @@ use chrono::{Local, TimeDelta};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use secrecy::{ExposeSecret, SecretString};
 use sqlx::{Executor, MySql, MySqlPool, Transaction};
-use std::error::Error;
+use std::{error::Error, str::FromStr};
 use tracing::{debug, error, info};
 
 /// Check if a given token matches the hash stored in the DB.
@@ -182,6 +182,45 @@ pub async fn enable_client(pool: &MySqlPool, client_id: &ClientId) -> Result<(),
 
     pool.execute(query).await.map_err(|e| {
         error!("{e}");
+        ServerError::DbError
+    })?;
+
+    Ok(())
+}
+
+/// Check if the user attempted to or is registered already in the DB.
+#[tracing::instrument(skip(pool))]
+pub async fn check_existing_user(
+    pool: &MySqlPool,
+    email: &str,
+) -> Result<Option<ClientId>, sqlx::Error> {
+    let existing_id = sqlx::query!("SELECT id FROM ApiUser WHERE email = ?", email)
+        .fetch_optional(pool)
+        .await?;
+
+    match existing_id {
+        Some(record) => Ok(Some(ClientId::from_str(&record.id).unwrap())),
+        None => Ok(None),
+    }
+}
+
+// Validate client's account
+#[tracing::instrument(skip(transaction))]
+pub async fn validate_client_account(
+    transaction: &mut Transaction<'static, MySql>,
+    id: &ClientId,
+) -> Result<(), ServerError> {
+    let query = sqlx::query!(
+        r#"
+        UPDATE ApiUser
+        SET validated = TRUE
+        WHERE id = ?;
+        "#,
+        id.to_string()
+    );
+
+    transaction.execute(query).await.map_err(|e| {
+        error!("Error found while updating ApiUser's entry for {id}: {e}");
         ServerError::DbError
     })?;
 

@@ -171,22 +171,6 @@ pub async fn req_validation(
     )))
 }
 
-/// Check if the user attempted to or is registered already in the DB.
-#[tracing::instrument(skip(pool))]
-async fn check_existing_user(
-    pool: &MySqlPool,
-    email: &str,
-) -> Result<Option<ClientId>, sqlx::Error> {
-    let existing_id = sqlx::query!("SELECT id FROM ApiUser WHERE email = ?", email)
-        .fetch_optional(pool)
-        .await?;
-
-    match existing_id {
-        Some(record) => Ok(Some(ClientId::from_str(&record.id).unwrap())),
-        None => Ok(None),
-    }
-}
-
 /// Register a new request in the DB.
 #[tracing::instrument(skip(transaction, form))]
 async fn register_new_request(
@@ -211,49 +195,6 @@ async fn register_new_request(
     })?;
 
     Ok(id)
-}
-
-/// Store a validation token in the DB.
-#[tracing::instrument(skip(transaction, token))]
-async fn store_validation_token(
-    transaction: &mut Transaction<'static, MySql>,
-    token: &SecretString,
-    expiry: TimeDelta,
-    client_id: &ClientId,
-) -> Result<(), ServerError> {
-    let query = sqlx::query!(
-        r#"
-        INSERT INTO ApiToken
-        (created, api_token, valid_until, client_id)
-        VALUES(current_timestamp(), ?, ?, ?);
-        "#,
-        token.expose_secret(),
-        Local::now() + expiry,
-        client_id.to_string(),
-    );
-
-    transaction.execute(query).await.map_err(|e| {
-        error!("{e}");
-        ServerError::DbError
-    })?;
-
-    Ok(())
-}
-
-/// Delete a token that will be no longer used.
-#[tracing::instrument(skip(pool, token))]
-async fn delete_token(pool: &MySqlPool, token: SecretString) -> Result<(), ServerError> {
-    let query = sqlx::query!(
-        "DELETE FROM ApiToken WHERE api_token = ?",
-        token.expose_secret()
-    );
-
-    pool.execute(query).await.map_err(|e| {
-        error!("{e}");
-        ServerError::DbError
-    })?;
-
-    Ok(())
 }
 
 // Validate a pair email-token
@@ -311,27 +252,4 @@ async fn check_email_validation(
             Err(Box::new(ServerError::DbError))
         }
     }
-}
-
-// Validate client's account
-#[tracing::instrument(skip(transaction))]
-async fn validate_client_account(
-    transaction: &mut Transaction<'static, MySql>,
-    id: &ClientId,
-) -> Result<(), ServerError> {
-    let query = sqlx::query!(
-        r#"
-        UPDATE ApiUser
-        SET validated = TRUE
-        WHERE id = ?;
-        "#,
-        id.to_string()
-    );
-
-    transaction.execute(query).await.map_err(|e| {
-        error!("Error found while updating ApiUser's entry for {id}: {e}");
-        ServerError::DbError
-    })?;
-
-    Ok(())
 }
