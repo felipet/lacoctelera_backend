@@ -5,6 +5,13 @@ on:
     branches: [ "main", "devel" ]
   pull_request:
     branches: [ "main", "devel" ]
+  workflow_dispatch:
+    inputs:
+      TEST_LOG:
+        description: 'Enable debug tracing when running cargo test'
+        required: false
+        default: 'debug'
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -67,7 +74,7 @@ jobs:
       - name: Check SQLx-data.json is up to date
         run: cargo sqlx prepare --workspace --check
       - name: Tests
-        run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail" cargo test
+        run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail" ${{ inputs.TEST_LOG }}cargo test
       - name: Generate code coverage
         run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail" cargo tarpaulin --verbose --all-features --timeout 120 --out xml
       - name: Upload coverage to codecov.io
