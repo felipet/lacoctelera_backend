@@ -19,7 +19,7 @@ use sqlx::{Connection, Executor, MySqlConnection, MySqlPool};
 use uuid::Uuid;
 
 static TRACING: Lazy<()> = Lazy::new(|| {
-    let settings = LogSettings {
+    let mut settings = LogSettings {
         tracing_level: "info".into(),
         log_output_file: "debug".into(),
         enable_console_log: Some(true),
@@ -27,7 +27,15 @@ static TRACING: Lazy<()> = Lazy::new(|| {
     };
 
     if std::env::var("TEST_LOG").is_ok() {
-        configure_tracing(&settings);
+        let level = std::env::var("TEST_LOG").expect("Failed to read the content of TEST_LOG var");
+        match level.as_str() {
+            "info" => settings.console_tracing_level = Some("info".into()),
+            &_ => settings.console_tracing_level = Some("debug".into()),
+        }
+
+        if level != "none" {
+            configure_tracing(&settings);
+        }
     }
 });
 
