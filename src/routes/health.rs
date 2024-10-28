@@ -19,6 +19,7 @@
 use crate::{datetime_object_type, AuthData};
 use actix_web::{get, options, web, HttpRequest, HttpResponse, Responder};
 use chrono::{DateTime, Days, Local};
+use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use tracing::instrument;
@@ -235,7 +236,7 @@ pub async fn options_echo() -> impl Responder {
 #[instrument(skip(req))]
 #[get("/health")]
 pub async fn health_check(req: web::Query<AuthData>) -> impl Responder {
-    if !req.api_key.is_empty() {
+    if !req.api_key.expose_secret().is_empty() {
         HttpResponse::NotImplemented()
             .append_header(("Access-Control-Allow-Origin", "*"))
             .append_header(("access-control-allow-headers", "content-type"))

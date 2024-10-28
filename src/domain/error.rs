@@ -61,3 +61,19 @@ impl ResponseError for ServerError {
         ))
     }
 }
+
+impl ResponseError for DataDomainError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            DataDomainError::InvalidAccessCredentials => StatusCode::FORBIDDEN,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    fn error_response(&self) -> HttpResponse<actix_web::body::BoxBody> {
+        HttpResponse::InternalServerError().body(format!(
+            include_str!("../../static/message_template.html"),
+            "<h3>Detected an error in the server, please, try again later.</h3>"
+        ))
+    }
+}

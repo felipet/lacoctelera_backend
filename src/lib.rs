@@ -6,17 +6,17 @@
 
 //! La Coctelera library.
 
-use crate::domain::DataDomainError;
+use crate::{
+    authentication::{AuthData, SecurityAddon},
+    domain::DataDomainError,
+};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use routes::{health, ingredient::FormData};
 use serde::{Deserialize, Serialize};
 use utoipa::{
-    openapi::{
-        security::{ApiKey, ApiKeyValue, SecurityScheme},
-        Object, ObjectBuilder,
-    },
-    IntoParams, Modify, OpenApi, ToSchema,
+    openapi::{Object, ObjectBuilder},
+    OpenApi,
 };
 use uuid::Uuid;
 use validator::ValidationError;
@@ -114,34 +114,40 @@ pub mod utils {
 pub mod authentication {
     mod token_auth;
 
+    use secrecy::SecretString;
+    use serde::Deserialize;
     pub use token_auth::*;
-}
+    use utoipa::{
+        openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
+        IntoParams, Modify, ToSchema,
+    };
 
-/// Struct that encapsulates valid authentication methods.
-///
-/// # Description
-///
-/// Restricted endpoints of the API require the client to include one of the following methods to authenticate:
-/// - API key: a token that is shared with clients to allow M2M connections to the API.
-#[derive(Deserialize, IntoParams, ToSchema)]
-pub struct AuthData {
-    /// For token-based authentication methods.
-    pub api_key: String,
-}
+    /// Struct that encapsulates valid authentication methods.
+    ///
+    /// # Description
+    ///
+    /// Restricted endpoints of the API require the client to include one of the following methods to authenticate:
+    /// - API key: a token that is shared with clients to allow M2M connections to the API.
+    #[derive(Debug, Deserialize, IntoParams, ToSchema)]
+    pub struct AuthData {
+        /// For token-based authentication methods.
+        pub api_key: SecretString,
+    }
 
-#[allow(dead_code)]
-struct SecurityAddon;
+    #[allow(dead_code)]
+    pub struct SecurityAddon;
 
-impl Modify for SecurityAddon {
-    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        let components = openapi.components.as_mut().unwrap(); // we can unwrap safely since there already is components registered.
-        components.add_security_scheme(
-            "api_key",
-            SecurityScheme::ApiKey(ApiKey::Query(ApiKeyValue::with_description(
+    impl Modify for SecurityAddon {
+        fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+            let components = openapi.components.as_mut().unwrap(); // we can unwrap safely since there already is components registered.
+            components.add_security_scheme(
                 "api_key",
-                "API key token to access restricted endpoints.",
-            ))),
-        )
+                SecurityScheme::ApiKey(ApiKey::Query(ApiKeyValue::with_description(
+                    "api_key",
+                    "API key token to access restricted endpoints.",
+                ))),
+            )
+        }
     }
 }
 

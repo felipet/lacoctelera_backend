@@ -98,6 +98,7 @@ pub async fn run(
             .service(routes::author::head_author)
             .service(routes::author::options_author)
             .service(routes::author::post_author)
+            .service(routes::author::delete_author)
             .service(routes::recipe::get_recipe)
             .service(routes::recipe::search_recipe)
             .service(routes::recipe::options_recipe)
