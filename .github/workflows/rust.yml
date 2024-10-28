@@ -1,15 +1,26 @@
-name: Rust CI Flow
+# This workflow is meant to be used by development commits.
+# It will be triggered automatically on any push to the devel branch.
+# Manually, can be triggered from any branch, which enables custom development branches to run CI as well.
+
+name: Rust CI Development Flow
 
 on:
   push:
-    branches: [ "main", "devel" ]
-  pull_request:
-    branches: [ "main", "devel" ]
+    branches: [ "devel" ]
+  workflow_dispatch:
+    inputs:
+      TEST_LOG:
+        description: 'Enable tracing when running cargo test'
+        required: false
+        default: 'debug'
+        type: choice
+        options:
+        - info
+        - debug
+        - none
 
 env:
   CARGO_TERM_COLOR: always
-  SQLX_VERSION: 0.7.4
-  SQLX_FEATURES: "rustls,mysql"
 
 jobs:
   fmt:
@@ -17,6 +28,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Cache rust compiler
+        id: cache-rust
+        uses: actions/cache@v4
+        env:
+          cache-name: cache-rust-compiler
+        with:
+          path: ~/.cargo
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/.global-cache') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -28,54 +51,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Cache rust compiler
+        id: cache-rust
+        uses: actions/cache@v4
+        env:
+          cache-name: cache-rust-compiler
+        with:
+          path: ~/.cargo
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/.global-cache') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: sqlx-${{ env.SQLX_VERSION }}
       - name: Linting
         run: cargo clippy --no-deps -- -D warnings
 
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    needs: [clippy, fmt]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: sqlx-${{ env.SQLX_VERSION }}
-      - uses: getong/mariadb-action@v1.11
-        with:
-           mysql root password: "password"
-           mysql database: "test_cocktail"
-           mysql user: "root"
-           mysql password: "root"
-      - name: Install SQLx-cli
-        run:
-            cargo install sqlx-cli
-            --version=${{ env.SQLX_VERSION }}
-            --features ${{ env.SQLX_FEATURES }}
-            --no-default-features
-            --locked
-      - name: Install tarpaulin
-        run: cargo install cargo-tarpaulin
-      - name: Migrate database
-        run: SKIP_DOCKER=true ./scripts/init_db.bash
-      - name: Check SQLx-data.json is up to date
-        run: cargo sqlx prepare --workspace --check
-      - name: Tests
-        run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail"
-             LACOCTELERA__EMAIL_CLIENT__SANDBOX_MODE=true
-             LACOCTELERA__EMAIL_CLIENT__API_USER=${{secrets.MAILJET_API_USER}}
-             LACOCTELERA__EMAIL_CLIENT__API_KEY=${{secrets.MAILJET_API_KEY}}
-             cargo test
-      - name: Generate code coverage
-        run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail" cargo tarpaulin --verbose --all-features --timeout 120 --out xml
-      - name: Upload coverage to codecov.io
-        uses: codecov/codecov-action@v4.5.0
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: true
