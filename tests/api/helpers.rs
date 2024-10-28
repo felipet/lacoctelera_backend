@@ -72,7 +72,6 @@ impl TestApp {
         self.api_client
             .post(&format!("{}/token/request", &self.address))
             .form(body)
-            .header("Content-type", "application/json")
             .send()
             .await
             .expect("Failed to execute post_token_request.")

@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "\n        INSERT INTO ApiToken\n        (created, api_token, valid_until, client_id)\n        VALUES(current_timestamp(), ?, ?, ?);\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "00a866a53870c62ddaf0b4ec7933f6b82d37501659acf1bc11a0899d0551ff3c"
+}

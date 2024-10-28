@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "\n        INSERT INTO ApiUser (id, name,email,validated,enabled,explanation) VALUES\n        (?, ?, ?, 0, 0, ?);\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "57fe43a21efa22bbc1caebec00ff8515d77d44b8eddcd6d526e0745978cd8fe1"
+}

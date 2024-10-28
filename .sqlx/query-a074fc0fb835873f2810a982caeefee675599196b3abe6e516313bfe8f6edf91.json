@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "DELETE FROM ApiToken WHERE api_token = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "a074fc0fb835873f2810a982caeefee675599196b3abe6e516313bfe8f6edf91"
+}

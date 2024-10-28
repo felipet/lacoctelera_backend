@@ -67,7 +67,11 @@ jobs:
       - name: Check SQLx-data.json is up to date
         run: cargo sqlx prepare --workspace --check
       - name: Tests
-        run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail" cargo test
+        run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail"
+             LACOCTELERA__EMAIL_CLIENT__SANDBOX_MODE=true
+             LACOCTELERA__EMAIL_CLIENT__API_USER=${{secrets.MAILJET_API_USER}}
+             LACOCTELERA__EMAIL_CLIENT__API_KEY=${{secrets.MAILJET_API_KEY}}
+             cargo test
       - name: Generate code coverage
         run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail" cargo tarpaulin --verbose --all-features --timeout 120 --out xml
       - name: Upload coverage to codecov.io
