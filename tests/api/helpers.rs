@@ -30,7 +30,10 @@ static TRACING: Lazy<()> = Lazy::new(|| {
         let level = std::env::var("TEST_LOG").expect("Failed to read the content of TEST_LOG var");
         match level.as_str() {
             "info" => settings.console_tracing_level = Some("info".into()),
-            &_ => settings.console_tracing_level = Some("debug".into()),
+            "debug" => settings.console_tracing_level = Some("debug".into()),
+            "warn" => settings.console_tracing_level = Some("warn".into()),
+            "error" => settings.console_tracing_level = Some("error".into()),
+            &_ => settings.console_tracing_level = Some("none".into()),
         }
 
         if level != "none" {

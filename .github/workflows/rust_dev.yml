@@ -12,7 +12,7 @@ on:
       TEST_LOG:
         description: 'Enable tracing when running cargo test'
         required: false
-        default: 'none'
+        default: 'debug'
         type: choice
         options:
         - info
@@ -62,7 +62,7 @@ jobs:
           components: rustfmt clippy
       - name: Linting
         run: cargo clippy --no-deps -- -D warnings
-        
+
   test:
     name: Test
     needs: build
