@@ -91,4 +91,5 @@ jobs:
              LACOCTELERA__EMAIL_CLIENT__SANDBOX_MODE=true
              LACOCTELERA__EMAIL_CLIENT__API_USER=${{secrets.MAILJET_API_USER}}
              LACOCTELERA__EMAIL_CLIENT__API_KEY=${{secrets.MAILJET_API_KEY}}
+             LACOCTELERA__EMAIL_CLIENT__ADMIN_ADDRESS=${{secrets.MAILJET_FROM_EMAIL}}
              TEST_LOG=${{ inputs.TEST_LOG }} cargo test
