@@ -11,7 +11,10 @@ use crate::{
     routes::{self, health},
     ApiDoc,
 };
+use actix_files as fs;
 use actix_web::{dev::Server, web, App, HttpServer};
+use mailjet_client::{MailjetClient, MailjetClientBuilder};
+use secrecy::ExposeSecret;
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool};
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
@@ -37,10 +40,25 @@ impl Application {
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr().unwrap().port();
 
+        let mut mail_client = MailjetClientBuilder::new(
+            configuration.email_client.api_user,
+            configuration.email_client.api_key,
+        )
+        .with_api_version(&configuration.email_client.target_api)
+        .with_email_name("La Coctelera")
+        .with_email_address(configuration.email_client.admin_address.expose_secret())
+        .with_https_enforcing(true)
+        .build()?;
+
+        if configuration.email_client.sandbox_mode.unwrap_or_default() {
+            mail_client.enable_sandbox_mode();
+        }
+
         let server = run(
             listener,
             connection_pool,
             configuration.application.base_url,
+            mail_client,
         )
         .await?;
 
@@ -60,8 +78,10 @@ pub async fn run(
     listener: TcpListener,
     db_pool: MySqlPool,
     _base_url: String,
+    mail_client: MailjetClient,
 ) -> Result<Server, anyhow::Error> {
     let db_pool = web::Data::new(db_pool);
+    let mail_client = web::Data::new(mail_client);
 
     let server = HttpServer::new(move || {
         App::new()
@@ -78,13 +98,22 @@ pub async fn run(
             .service(routes::author::head_author)
             .service(routes::author::options_author)
             .service(routes::author::post_author)
+            .service(routes::author::delete_author)
             .service(routes::recipe::get_recipe)
             .service(routes::recipe::search_recipe)
             .service(routes::recipe::options_recipe)
             .service(routes::recipe::head_recipe)
             .service(routes::recipe::post_recipe)
+            .service(fs::Files::new("/static", "./static/resources").show_files_listing())
+            .service(
+                web::scope("/token")
+                    .service(routes::token::token_req_get)
+                    .service(routes::token::token_req_post)
+                    .service(routes::token::req_validation),
+            )
             .service(SwaggerUi::new("/{_:.*}").url("/api-docs/openapi.json", ApiDoc::openapi()))
             .app_data(db_pool.clone())
+            .app_data(mail_client.clone())
     })
     .listen(listener)?
     .run();

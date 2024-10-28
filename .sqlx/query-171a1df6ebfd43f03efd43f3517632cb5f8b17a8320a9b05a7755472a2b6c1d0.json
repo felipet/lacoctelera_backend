@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "\n    UPDATE ApiUser SET enabled = TRUE\n    WHERE id = ?;\n    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "171a1df6ebfd43f03efd43f3517632cb5f8b17a8320a9b05a7755472a2b6c1d0"
+}

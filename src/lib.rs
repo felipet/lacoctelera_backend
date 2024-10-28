@@ -6,17 +6,17 @@
 
 //! La Coctelera library.
 
-use crate::domain::DataDomainError;
+use crate::{
+    authentication::{AuthData, SecurityAddon},
+    domain::DataDomainError,
+};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use routes::{health, ingredient::FormData};
 use serde::{Deserialize, Serialize};
 use utoipa::{
-    openapi::{
-        security::{ApiKey, ApiKeyValue, SecurityScheme},
-        Object, ObjectBuilder,
-    },
-    IntoParams, Modify, OpenApi, ToSchema,
+    openapi::{Object, ObjectBuilder},
+    OpenApi,
 };
 use uuid::Uuid;
 use validator::ValidationError;
@@ -30,6 +30,7 @@ static RE_UUID_V4: Lazy<Regex> = Lazy::new(|| Regex::new(r"([a-fA-F0-9-]{4,12}){
 pub mod configuration;
 pub mod startup;
 pub mod telemetry;
+
 pub mod routes {
     pub mod health;
     pub use health::echo;
@@ -74,47 +75,79 @@ pub mod routes {
         pub use patch::patch_recipe;
         pub use post::post_recipe;
     }
+
+    pub mod token {
+        pub mod token_request;
+
+        pub use token_request::{req_validation, token_req_get, token_req_post};
+    }
 }
 
 pub mod domain {
+    pub mod auth;
     pub mod author;
     mod error;
     mod ingredient;
     pub mod recipe;
     pub mod tag;
 
+    pub use auth::ClientId;
     pub use author::{Author, AuthorBuilder, SocialProfile};
-    pub use error::DataDomainError;
+    pub use error::{DataDomainError, ServerError};
     pub use ingredient::{IngCategory, Ingredient};
     pub use recipe::{QuantityUnit, Recipe, RecipeCategory, RecipeContains, RecipeQuery, StarRate};
     pub use tag::Tag;
+
+    /// Length of the string that represents a client ID.
+    pub static ID_LENGTH: usize = 8;
 }
 
-/// Struct that encapsulates valid authentication methods.
-///
-/// # Description
-///
-/// Restricted endpoints of the API require the client to include one of the following methods to authenticate:
-/// - API key: a token that is shared with clients to allow M2M connections to the API.
-#[derive(Deserialize, IntoParams, ToSchema)]
-pub struct AuthData {
-    /// For token-based authentication methods.
-    pub api_key: String,
+/// Module with utilities.
+pub mod utils {
+    pub mod mailing {
+        mod mailing_utils;
+
+        pub use mailing_utils::*;
+    }
 }
 
-#[allow(dead_code)]
-struct SecurityAddon;
+pub mod authentication {
+    mod token_auth;
 
-impl Modify for SecurityAddon {
-    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        let components = openapi.components.as_mut().unwrap(); // we can unwrap safely since there already is components registered.
-        components.add_security_scheme(
-            "api_key",
-            SecurityScheme::ApiKey(ApiKey::Query(ApiKeyValue::with_description(
+    use secrecy::SecretString;
+    use serde::Deserialize;
+    pub use token_auth::*;
+    use utoipa::{
+        openapi::security::{ApiKey, ApiKeyValue, SecurityScheme},
+        IntoParams, Modify, ToSchema,
+    };
+
+    /// Struct that encapsulates valid authentication methods.
+    ///
+    /// # Description
+    ///
+    /// Restricted endpoints of the API require the client to include one of the following methods to authenticate:
+    /// - API key: a token that is shared with clients to allow M2M connections to the API.
+    #[derive(Debug, Deserialize, IntoParams, ToSchema)]
+    pub struct AuthData {
+        /// For token-based authentication methods.
+        pub api_key: SecretString,
+    }
+
+    #[allow(dead_code)]
+    pub struct SecurityAddon;
+
+    impl Modify for SecurityAddon {
+        fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+            let components = openapi.components.as_mut().unwrap(); // we can unwrap safely since there already is components registered.
+            components.add_security_scheme(
                 "api_key",
-                "API key token to access restricted endpoints.",
-            ))),
-        )
+                SecurityScheme::ApiKey(ApiKey::Query(ApiKeyValue::with_description(
+                    "api_key",
+                    "API key token to access restricted endpoints.",
+                ))),
+            )
+        }
     }
 }
 
@@ -171,7 +204,18 @@ impl TryFrom<&str> for QueryId {
     ),
     info(
         title = "La Coctelera API",
-        description = "## A REST API for La Coctelera backend service.",
+        description = r#"## A REST API for La Coctelera backend service.
+La Coctelera is a web service that aims to share a public data base with recipes for cocktails. The service is
+split in two parts: the backend, which exposes a public REST API; and the frontend, which offers an
+user-friendly web interface.
+
+If you got here, you're likely interested on using the API to connect your own app or service to the data base.
+To protect the DB against SPAM and malicious people, all the endpoints that modify data are protected. If you
+just need to retrieve recipes and data from the DB, go ahead and use the public API. And if you aim to go
+deeper and be able to modify the DB, request an API token using this URL: /token/request.
+
+If you have any troubles with the access token, or questions about how to use the API, contact the sysadmin:
+"#,
         contact(name = "Felipe Torres González", email = "admin@nubecita.eu")
     ),
     modifiers(&SecurityAddon)

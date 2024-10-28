@@ -1,0 +1,4 @@
+Greetings from La Coctelera!
+You are receiving this email because a token request to access the API of La Coctelera was received.
+If you don't recognize this service, feel free to ignore this message.
+To complete the request process, please, visit the following link to validate your email: {}

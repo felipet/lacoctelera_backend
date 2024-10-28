@@ -62,7 +62,7 @@
 
 use config::{Config, ConfigError, Environment, File};
 use core::time;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::{ExposeSecret, SecretString};
 use serde_aux::field_attributes::deserialize_number_from_string;
 use serde_derive::Deserialize;
 use sqlx::mysql::{MySqlConnectOptions, MySqlSslMode};
@@ -79,6 +79,8 @@ pub struct Settings {
     pub application: ApplicationSettings,
     /// DB Settings.
     pub database: DataBaseSettings,
+    /// email client settings.
+    pub email_client: EmailClientSettings,
 }
 
 /// Application's settings.
@@ -106,7 +108,7 @@ pub struct DataBaseSettings {
     /// Username to access the application's database.
     pub username: String,
     /// Password to access the application's database.
-    pub password: Secret<String>,
+    pub password: SecretString,
     /// Name of the application's database.
     pub db_name: String,
     #[serde(deserialize_with = "deserialize_number_from_string")]
@@ -149,6 +151,17 @@ pub struct LogSettings {
     pub console_tracing_level: Option<String>,
 }
 
+/// Settings for the email client [mailjet_client](https://crates.io/crates/mailjet_client)
+#[derive(Clone, Debug, Deserialize)]
+pub struct EmailClientSettings {
+    pub api_user: SecretString,
+    pub api_key: SecretString,
+    pub user_agent: String,
+    pub target_api: String,
+    pub admin_address: SecretString,
+    pub sandbox_mode: Option<bool>,
+}
+
 impl Settings {
     /// Parse the application settings.
     pub fn new() -> Result<Self, ConfigError> {
@@ -172,8 +185,8 @@ impl Settings {
 }
 
 impl DataBaseSettings {
-    pub fn connection_string(&self) -> Secret<String> {
-        Secret::new(format!(
+    pub fn connection_string(&self) -> SecretString {
+        SecretString::from(format!(
             "mysql://{}:{}@{}:{}/{}",
             self.username,
             self.password.expose_secret(),

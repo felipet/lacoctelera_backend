@@ -31,3 +31,11 @@ _Nothing yet_
 - Definition of the `/health` endpoint with a dummy implementation.
 - Full definition of all the data objects needed to send/recipe data from the API to the clients.
 - Introduced restricted access endpoints.
+
+## [0.3.0] - 2024-10-28
+
+- Add an authentication module to restrict the access to some endpoints of the API.
+- Implement a process to request an API token using an human friendly web interface.
+- Improved organisation of the HTML resources.
+- Initial definition of HTML responses for the token request pages.
+- Improved the CI scripts to reduce the completion time and distinguish between development and production jobs.

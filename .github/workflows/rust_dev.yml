@@ -1,0 +1,95 @@
+# This workflow is meant to be used by development commits.
+# It will be triggered automatically on any push to the devel branch.
+# Manually, can be triggered from any branch, which enables custom development branches to run CI as well.
+
+name: Rust CI Development Flow
+
+on:
+  push:
+    branches: [ "devel" ]
+  workflow_dispatch:
+    inputs:
+      TEST_LOG:
+        description: 'Enable tracing when running cargo test'
+        required: false
+        default: 'debug'
+        type: choice
+        options:
+        - info
+        - debug
+        - none
+
+env:
+  CARGO_TERM_COLOR: always
+  SQLX_VERSION: 0.7.4
+  SQLX_FEATURES: "rustls,mysql"
+
+jobs:
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt clippy
+      - name: Enforce formatting
+        run: cargo fmt --check
+
+  build:
+    name: Check
+    needs: fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt clippy
+      - name: Build
+        run: cargo check --future-incompat-report
+
+  clippy:
+    name: Clippy
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt clippy
+      - name: Linting
+        run: cargo clippy --no-deps -- -D warnings
+
+  test:
+    name: Test
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: getong/mariadb-action@v1.11
+        with:
+           mysql root password: "password"
+           mysql database: "test_cocktail"
+           mysql user: "root"
+           mysql password: "root"
+      - name: Install SQLx-cli
+        run:
+            cargo install sqlx-cli
+            --version=${{ env.SQLX_VERSION }}
+            --features ${{ env.SQLX_FEATURES }}
+            --no-default-features
+            --locked
+      - name: Migrate database
+        run: SKIP_DOCKER=true ./scripts/init_db.bash
+      - name: Tests
+        run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail"
+             LACOCTELERA__EMAIL_CLIENT__SANDBOX_MODE=true
+             LACOCTELERA__EMAIL_CLIENT__API_USER=${{secrets.MAILJET_API_USER}}
+             LACOCTELERA__EMAIL_CLIENT__API_KEY=${{secrets.MAILJET_API_KEY}}
+             LACOCTELERA__EMAIL_CLIENT__ADMIN_ADDRESS=${{secrets.MAILJET_FROM_EMAIL}}
+             TEST_LOG=${{ inputs.TEST_LOG }} cargo test
