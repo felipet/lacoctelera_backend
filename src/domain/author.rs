@@ -74,9 +74,9 @@ pub struct SocialProfile {
     /// Name of the social network, i.e. Instagram, X, TikTok... 40 chars max.
     #[validate(length(max = 40))]
     pub provider_name: String,
-    /// User name registered by the author in the social network. 40 chars max.
-    #[validate(length(max = 40))]
-    pub user_name: String,
+    /// URL of the social network. 80 chars max.
+    #[validate(length(max = 80))]
+    pub website: String,
 }
 
 /// Implementation of the builder pattern for the [Author] `struct`.
@@ -291,11 +291,11 @@ mod tests {
         let social_profiles = [
             SocialProfile {
                 provider_name: "Facebook".into(),
-                user_name: "janedoe".into(),
+                website: "a web site".into(),
             },
             SocialProfile {
                 provider_name: "Instragram".into(),
-                user_name: "janedoe".into(),
+                website: "a web site".into(),
             },
         ];
 
@@ -327,11 +327,11 @@ mod tests {
         let social_profiles = [
             SocialProfile {
                 provider_name: "Facebook".into(),
-                user_name: "janedoe".into(),
+                website: "a web site".into(),
             },
             SocialProfile {
                 provider_name: "Instragram".into(),
-                user_name: "janedoe".into(),
+                website: "a web site".into(),
             },
         ];
 
