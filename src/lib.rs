@@ -52,6 +52,7 @@ pub mod routes {
         pub mod options;
         pub mod patch;
         pub mod post;
+        mod utils;
 
         pub use delete::delete_author;
         pub use get::search_author;
