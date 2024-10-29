@@ -64,10 +64,11 @@ pub struct ClientId(String);
 
 impl ClientId {
     pub fn new() -> Self {
-        let mut id = Uuid::now_v7().to_string();
-        id.truncate(ID_LENGTH);
+        let full_id = Uuid::now_v7().to_string();
+        let first_chunk = &full_id[..ID_LENGTH / 2];
+        let second_chunk = &full_id[full_id.len() - ID_LENGTH / 2..];
 
-        Self(id)
+        Self(String::from(&format!("{first_chunk}{second_chunk}")))
     }
 }
 
