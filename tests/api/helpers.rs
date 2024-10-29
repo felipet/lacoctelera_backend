@@ -8,13 +8,16 @@
 
 use actix_web::rt::spawn;
 use lacoctelera::{
+    authentication::{generate_new_token_hash, generate_token, store_validation_token, AuthData},
     configuration::LogSettings,
     configuration::{DataBaseSettings, Settings},
+    domain::ClientId,
     routes::ingredient::{FormData, QueryData},
     startup::Application,
     telemetry::configure_tracing,
 };
 use once_cell::sync::Lazy;
+use secrecy::{ExposeSecret, SecretString};
 use sqlx::{Connection, Executor, MySqlConnection, MySqlPool};
 use uuid::Uuid;
 
@@ -46,6 +49,12 @@ pub struct TestApp {
     pub address: String,
     pub db_pool: MySqlPool,
     pub api_client: reqwest::Client,
+    pub api_token: AuthData,
+}
+
+pub enum Credentials {
+    WithCredentials,
+    NoCredentials,
 }
 
 impl TestApp {
@@ -87,6 +96,31 @@ impl TestApp {
             .await
             .expect("Failed to execute post_token_request.")
     }
+
+    pub async fn post_author<Body>(
+        &self,
+        body: &Body,
+        credentials: Credentials,
+    ) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        let url = match credentials {
+            Credentials::WithCredentials => &format!(
+                "{}/author?api_key={}",
+                &self.address,
+                &self.api_token.api_key.expose_secret()
+            ),
+            Credentials::NoCredentials => &format!("{}/author", &self.address),
+        };
+
+        self.api_client
+            .post(url)
+            .json(body)
+            .send()
+            .await
+            .expect("Failed to execute post_author.")
+    }
 }
 
 pub async fn spawn_app() -> TestApp {
@@ -119,10 +153,15 @@ pub async fn spawn_app() -> TestApp {
         .build()
         .unwrap();
 
+    let api_token = generate_access_token(&db_pool)
+        .await
+        .expect("Failed to generate an API token for testing");
+
     TestApp {
         address,
         db_pool,
         api_client,
+        api_token,
     }
 }
 
@@ -147,4 +186,47 @@ pub async fn configure_database(config: &DataBaseSettings) -> MySqlPool {
         .expect("Failed to migrate the testing DB.");
 
     conn_pool
+}
+
+// Seed an ApiUser in the test DB, and generate a token to grant access to the restricted endpoints during testing.
+pub async fn generate_access_token(pool: &MySqlPool) -> Result<AuthData, anyhow::Error> {
+    // Add a new entry in the ApiUser DB table.
+    let client_id = ClientId::new();
+    let query = sqlx::query!(
+        r#"
+        INSERT INTO ApiUser (id, email, validated,enabled,explanation) VALUES
+        (?, ?, 1, 1, ?);
+        "#,
+        client_id.to_string(),
+        "jane_doe@mail.com",
+        "Because I'm testing this thing",
+    );
+
+    let token = SecretString::from(generate_token());
+    let token_hashed = generate_new_token_hash(token.clone())?;
+
+    // Save it into the DB.
+    let mut transaction = pool
+        .begin()
+        .await
+        .expect("Failed to start a new DB transaction");
+    transaction
+        .execute(query)
+        .await
+        .expect("Failed to create a dummy user for testing");
+    store_validation_token(
+        &mut transaction,
+        &token_hashed,
+        chrono::TimeDelta::days(1),
+        &client_id,
+    )
+    .await?;
+    transaction
+        .commit()
+        .await
+        .expect("Failed to commit DB transaction");
+
+    Ok(AuthData {
+        api_key: SecretString::from(format!("{client_id}:{}", token.expose_secret())),
+    })
 }

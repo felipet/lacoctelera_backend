@@ -4,9 +4,20 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::domain::Author;
-use actix_web::{post, web, HttpResponse};
-use tracing::info;
+use crate::{
+    authentication::{check_access, AuthData},
+    domain::Author,
+    routes::author::utils::register_new_author,
+};
+use actix_web::{
+    post,
+    web::{Data, Json, Query},
+    HttpResponse,
+};
+use serde_json::json;
+use sqlx::MySqlPool;
+use std::error::Error;
+use tracing::{debug, info, instrument};
 
 /// POST method for the /author endpoint (Restricted)
 ///
@@ -27,9 +38,28 @@ use tracing::info;
         ("api_key" = [])
     )
 )]
+#[instrument(skip(pool, token))]
 #[post("/author")]
-pub async fn post_author(req: web::Json<Author>) -> HttpResponse {
-    info!("Post new recipe: {:#?}", req.0);
+pub async fn post_author(
+    req: Json<Author>,
+    pool: Data<MySqlPool>,
+    token: Query<AuthData>,
+) -> Result<HttpResponse, Box<dyn Error>> {
+    info!("New author entry received");
 
-    HttpResponse::NotImplemented().finish()
+    // Access control
+    let token = token.api_key.clone();
+    check_access(&pool, token).await?;
+    info!("Access granted");
+
+    // Log the received payload
+    debug!("Author entry: {:?}", req);
+
+    // Store the received entry in the DB.
+    let id = register_new_author(&pool, &req).await?;
+    info!("New Author entry registered with id: {id}");
+
+    Ok(HttpResponse::Accepted().json(json!({
+        "id": id.to_string()
+    })))
 }
