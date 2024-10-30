@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::helpers::{spawn_app, Credentials};
+use crate::helpers::{spawn_app, Credentials, TestApp};
 use lacoctelera::domain::{Author, AuthorBuilder, SocialProfile};
 use pretty_assertions::assert_eq;
 
@@ -37,10 +37,20 @@ async fn social_network_providers() -> Vec<SocialProfile> {
 }
 
 #[actix_web::test]
-async fn post_author_without_credentials() {
-    let _social_providers = social_network_providers().await;
+async fn post_author_api_with_credentials() {
     let test_app = spawn_app().await;
+    post_author_with_credentials(&test_app).await;
+    test_app.db_pool.close().await;
+}
 
+#[actix_web::test]
+async fn post_author_api_without_credentials() {
+    let test_app = spawn_app().await;
+    post_author_without_credentials(&test_app).await;
+    test_app.db_pool.close().await;
+}
+
+async fn post_author_without_credentials(test_app: &TestApp) {
     let result = test_app
         .post_author(&valid_author().await, Credentials::NoCredentials)
         .await;
@@ -50,11 +60,7 @@ async fn post_author_without_credentials() {
     assert_eq!(status_code, 400);
 }
 
-#[actix_web::test]
-async fn post_author_with_credentials() {
-    let _social_providers = social_network_providers().await;
-    let test_app = spawn_app().await;
-
+async fn post_author_with_credentials(test_app: &TestApp) {
     let result = test_app
         .post_author(&valid_author().await, Credentials::WithCredentials)
         .await;
