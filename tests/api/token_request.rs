@@ -178,9 +178,8 @@ async fn non_existing_client_has_no_access_to_the_api() {
     test_app.db_pool.close().await;
 }
 
-/// This time, we'll test the code that checks whether a client hash access to the API.
 #[actix_web::test]
-async fn api_access_by_token() {
+async fn disabled_account_fails_to_grant_access() {
     let test_app = spawn_app().await;
 
     let client_id = seed_api_client(&test_app.db_pool)
@@ -220,6 +219,46 @@ async fn api_access_by_token() {
         .is_err());
     info!("Disabled account check passed");
 
+    // This avoids a dummy warning message in the tracer.
+    test_app.db_pool.close().await;
+}
+
+/// This time, we'll test the code that checks whether a client hash access to the API.
+#[actix_web::test]
+async fn enabled_and_validated_token_grants_access() {
+    let test_app = spawn_app().await;
+
+    let client_id = seed_api_client(&test_app.db_pool)
+        .await
+        .expect("Failed to seed an ApiClient into the DB");
+
+    info!("ClientID seeded: {client_id}");
+
+    let plain_token = generate_token();
+    let token_string = SecretString::from(format!("{client_id}:{plain_token}"));
+    let token_hashed = generate_new_token_hash(SecretString::from(plain_token))
+        .expect("Failed to generate the token hash");
+    let mut transaction = test_app
+        .db_pool
+        .begin()
+        .await
+        .expect("Failed to begin a new DB transaction");
+    store_validation_token(
+        &mut transaction,
+        &token_hashed,
+        TimeDelta::days(1),
+        &client_id,
+    )
+    .await
+    .expect("Failed to store the token in the DB");
+    validate_client_account(&mut transaction, &client_id)
+        .await
+        .expect("Failed to validate the test client in the DB");
+    transaction
+        .commit()
+        .await
+        .expect("Failed to commit transaction to the DB");
+
     // Let's enable it.
     enable_client(&test_app.db_pool, &client_id)
         .await
@@ -233,17 +272,50 @@ async fn api_access_by_token() {
         }
     }
 
-    // Finally, let's play with the expiry dates.
-    let new_expiry_date = Local::now() - TimeDelta::days(2);
-    test_app
-        .db_pool
-        .execute(sqlx::query!(
-            "UPDATE ApiToken SET valid_until = ? WHERE client_id = ?;",
-            new_expiry_date,
-            client_id.to_string()
-        ))
+    // This avoids a dummy warning message in the tracer.
+    test_app.db_pool.close().await;
+}
+
+#[actix_web::test]
+async fn expired_token_fails_to_grant_access() {
+    let test_app = spawn_app().await;
+
+    let client_id = seed_api_client(&test_app.db_pool)
         .await
-        .expect("Failed to change the expiry date");
+        .expect("Failed to seed an ApiClient into the DB");
+
+    info!("ClientID seeded: {client_id}");
+
+    let plain_token = generate_token();
+    let token_string = SecretString::from(format!("{client_id}:{plain_token}"));
+    let token_hashed = generate_new_token_hash(SecretString::from(plain_token))
+        .expect("Failed to generate the token hash");
+    let mut transaction = test_app
+        .db_pool
+        .begin()
+        .await
+        .expect("Failed to begin a new DB transaction");
+    store_validation_token(
+        &mut transaction,
+        &token_hashed,
+        TimeDelta::days(0),
+        &client_id,
+    )
+    .await
+    .expect("Failed to store the token in the DB");
+    validate_client_account(&mut transaction, &client_id)
+        .await
+        .expect("Failed to validate the test client in the DB");
+    transaction
+        .commit()
+        .await
+        .expect("Failed to commit transaction to the DB");
+
+    // Let's enable it.
+    enable_client(&test_app.db_pool, &client_id)
+        .await
+        .expect("Failed to enable the test client in the DB");
+
     assert!(check_access(&test_app.db_pool, token_string).await.is_err());
     info!("Expiry date check passed");
 
