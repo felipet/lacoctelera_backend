@@ -7,7 +7,7 @@ CREATE TABLE `SocialProfile` (
     `provider_name` varchar(40) NOT NULL,
     `website` VARCHAR(80) NOT NULL,
     CONSTRAINT `SocialProfile_PK` PRIMARY KEY (`provider_name`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
 -- Load some Social Media profiles into the DB.
 INSERT INTO `SocialProfile` VALUES
@@ -25,7 +25,7 @@ CREATE TABLE `Author` (
     `description` VARCHAR(255),
     `website` VARCHAR(80),
     CONSTRAINT PRIMARY KEY (`id`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
 -- Relation between social profiles and authors.
 CREATE TABLE `AuthorHashSocialProfile` (
@@ -37,4 +37,4 @@ CREATE TABLE `AuthorHashSocialProfile` (
         REFERENCES `SocialProfile` (`provider_name`) ON DELETE CASCADE,
     CONSTRAINT `SocialProfile_User_FK` FOREIGN KEY (`author_id`)
         REFERENCES `Author` (`id`) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;

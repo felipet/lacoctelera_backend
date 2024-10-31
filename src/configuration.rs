@@ -217,6 +217,7 @@ impl DataBaseSettings {
             .username(&self.username)
             .password(self.password.expose_secret())
             .port(self.port)
+            .charset("utf8mb4")
             .ssl_mode(if self.require_ssl {
                 MySqlSslMode::Required
             } else {
