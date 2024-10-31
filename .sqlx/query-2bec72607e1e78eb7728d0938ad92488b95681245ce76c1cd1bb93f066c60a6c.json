@@ -1,0 +1,44 @@
+{
+  "db_name": "MySQL",
+  "query": "\n        SELECT provider_name, user_name, website\n        FROM AuthorHashSocialProfile ahsp natural join SocialProfile sp\n        WHERE ahsp.author_id = ?\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "provider_name",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | MULTIPLE_KEY | NO_DEFAULT_VALUE",
+          "max_size": 160
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "user_name",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "max_size": 160
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "website",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "max_size": 320
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2bec72607e1e78eb7728d0938ad92488b95681245ce76c1cd1bb93f066c60a6c"
+}
