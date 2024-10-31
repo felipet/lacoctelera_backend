@@ -49,7 +49,8 @@ async fn _social_network_providers() -> Vec<SocialProfile> {
 
 #[actix_web::test]
 async fn post_author_api_with_credentials() {
-    let test_app = spawn_app().await;
+    let mut test_app = spawn_app().await;
+    test_app.generate_access_token().await;
     post_author_with_credentials(&test_app).await;
     test_app.db_pool.close().await;
 }
@@ -107,7 +108,8 @@ async fn get_non_existing_author_api() {
 
 #[actix_web::test]
 async fn insert_and_retrieve_author() {
-    let test_app = spawn_app().await;
+    let mut test_app = spawn_app().await;
+    test_app.generate_access_token().await;
     let test_author = post_author_with_credentials(&test_app).await;
     let response = test_app
         .get_author(
