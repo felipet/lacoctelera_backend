@@ -15,15 +15,6 @@ INSERT INTO `SocialProfile` VALUES
     ('X', 'https://x.com/'),
     ('Instagram', 'https://www.instagram.com/');
 
--- Relation between social profiles and authors.
-CREATE TABLE `AuthorHashSocialProfile` (
-    `id` INT PRIMARY KEY AUTO_INCREMENT,
-    `provider_name` VARCHAR(40) NOT NULL,
-    `user_name` VARCHAR(40) NOT NULL,
-    CONSTRAINT `SocialProfile_Provider_FK` FOREIGN KEY (`provider_name`)
-        REFERENCES `SocialProfile` (`provider_name`) ON DELETE CASCADE
-);
-
 -- Author table.
 CREATE TABLE `Author` (
     `id` VARCHAR(40) NOT NULL,
@@ -34,4 +25,16 @@ CREATE TABLE `Author` (
     `description` VARCHAR(255),
     `website` VARCHAR(80),
     CONSTRAINT PRIMARY KEY (`id`)
+);
+
+-- Relation between social profiles and authors.
+CREATE TABLE `AuthorHashSocialProfile` (
+    `id` INT PRIMARY KEY AUTO_INCREMENT,
+    `provider_name` VARCHAR(40) NOT NULL,
+    `user_name` VARCHAR(40) NOT NULL,
+    `author_id` VARCHAR(40) NOT NULL,
+    CONSTRAINT `SocialProfile_Provider_FK` FOREIGN KEY (`provider_name`)
+        REFERENCES `SocialProfile` (`provider_name`) ON DELETE CASCADE,
+    CONSTRAINT `SocialProfile_User_FK` FOREIGN KEY (`author_id`)
+        REFERENCES `Author` (`id`) ON DELETE CASCADE
 );
