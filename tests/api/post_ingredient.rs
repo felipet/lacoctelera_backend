@@ -78,6 +78,8 @@ async fn post_ingredient_returns_200_for_valid_json() {
         let response = test_app.post_ingredient(&payload).await;
         assert_eq!(response.status().as_u16(), 200);
     }
+
+    test_app.db_pool.close().await;
 }
 
 #[actix_web::test]
@@ -117,6 +119,8 @@ async fn post_ingredient_returns_400_for_invalid_json() {
         let response = test_app.post_ingredient(&payload).await;
         assert_eq!(response.status().as_u16(), 400);
     }
+
+    test_app.db_pool.close().await;
 }
 
 #[actix_web::test]
@@ -209,4 +213,6 @@ async fn post_ingredient_to_db() {
             Ingredient::parse(&query.name, &query.category, query.desc.as_deref()).unwrap(),
         );
     }
+
+    test_app.db_pool.close().await;
 }
