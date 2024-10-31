@@ -9,6 +9,7 @@
 use crate::{domain::DataDomainError, validate_id};
 use names::Generator;
 use serde::{Deserialize, Serialize};
+use std::cmp::PartialEq;
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 use validator::Validate;
@@ -43,7 +44,7 @@ use validator::Validate;
 /// The constructor [Author::default] is given to generate a new author entry using a random funny name.
 ///
 /// Prefer [AuthorBuilder] rather than [Author::new] to build a new [Author] instance.
-#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, IntoParams, Validate, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, IntoParams, Validate)]
 pub struct Author {
     #[validate(custom(function = "validate_id"))]
     #[schema(value_type = String, example = "0191e13b-5ab7-78f1-bc06-be503a6c111b")]
@@ -202,6 +203,22 @@ impl Author {
 
     pub fn social_profiles(&self) -> Option<&[SocialProfile]> {
         self.social_profiles.as_deref()
+    }
+
+    pub fn mute_private_data(&mut self) {
+        self.email = None;
+        self.description = None;
+    }
+}
+
+impl PartialEq for Author {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.surname == other.surname
+            && self.email == other.email
+            && self.shareable == other.shareable
+            && self.description == other.description
+            && self.social_profiles == other.social_profiles
     }
 }
 
@@ -385,5 +402,42 @@ mod tests {
             .set_description(&"dummy string".repeat(300))
             .build();
         assert!(author.is_err());
+    }
+
+    #[test]
+    fn mute_fields() {
+        let id = Uuid::now_v7().to_string();
+        let social_profiles = [
+            SocialProfile {
+                provider_name: "Facebook".into(),
+                website: "a web site".into(),
+            },
+            SocialProfile {
+                provider_name: "Instragram".into(),
+                website: "a web site".into(),
+            },
+        ];
+        let mut author = Author::new(
+            Some(id.clone()),
+            Some("Jane".to_string()),
+            Some("Doe".to_string()),
+            Some("jane_doe@mail.com".to_string()),
+            Some(false),
+            Some("An unknown person.".to_string()),
+            Some("http://janedoe.com".to_string()),
+            Some(&social_profiles),
+        )
+        .expect("Failed to create new instance of Author using new.");
+
+        author.mute_private_data();
+
+        assert_eq!(author.id().unwrap(), id);
+        assert_eq!(author.name().unwrap(), "Jane");
+        assert_eq!(author.surname().unwrap(), "Doe");
+        assert_eq!(author.email(), None);
+        assert_eq!(author.shareable(), false);
+        assert_eq!(author.description(), None);
+        assert_eq!(author.website().unwrap(), "http://janedoe.com");
+        assert_eq!(author.social_profiles().unwrap(), social_profiles);
     }
 }
