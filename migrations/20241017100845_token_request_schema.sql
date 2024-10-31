@@ -11,7 +11,7 @@ CREATE TABLE `ApiUser` (
     `enabled` BOOL DEFAULT false NULL,
     `explanation` TEXT NOT NULL,
     CONSTRAINT `ApiUser_PK` PRIMARY KEY (`id`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
 DROP TABLE IF EXISTS `ApiToken`;
 CREATE TABLE `ApiToken` (
@@ -21,4 +21,4 @@ CREATE TABLE `ApiToken` (
     `client_id` VARCHAR(36) NOT NULL,
     CONSTRAINT `ApiToken_PK` PRIMARY KEY (`api_token`),
     CONSTRAINT `ApiToken_ApiUser_FK` FOREIGN KEY (`client_id`) REFERENCES `ApiUser` (`id`) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
