@@ -121,6 +121,23 @@ impl TestApp {
             .await
             .expect("Failed to execute post_author.")
     }
+
+    pub async fn get_author(&self, author_id: &str, credentials: Credentials) -> reqwest::Response {
+        let url = match credentials {
+            Credentials::WithCredentials => &format!(
+                "{}/author/{author_id}?api_key={}",
+                &self.address,
+                &self.api_token.api_key.expose_secret()
+            ),
+            Credentials::NoCredentials => &format!("{}/author/{author_id}", &self.address),
+        };
+
+        self.api_client
+            .get(url)
+            .send()
+            .await
+            .expect("Failed to execute post_author.")
+    }
 }
 
 pub async fn spawn_app() -> TestApp {
