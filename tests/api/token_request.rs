@@ -298,7 +298,7 @@ async fn expired_token_fails_to_grant_access() {
     store_validation_token(
         &mut transaction,
         &token_hashed,
-        TimeDelta::days(0),
+        TimeDelta::days(-1),
         &client_id,
     )
     .await
@@ -316,8 +316,13 @@ async fn expired_token_fails_to_grant_access() {
         .await
         .expect("Failed to enable the test client in the DB");
 
-    assert!(check_access(&test_app.db_pool, token_string).await.is_err());
-    info!("Expiry date check passed");
+    match check_access(&test_app.db_pool, token_string.clone()).await {
+        Ok(_) => panic!("The access is granted to the client and it should be denied"),
+        Err(e) => {
+            error!("{e}");
+            info!("Expiry date check passed");
+        }
+    }
 
     // This avoids a dummy warning message in the tracer.
     test_app.db_pool.close().await;
