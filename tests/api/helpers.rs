@@ -138,6 +138,12 @@ impl TestApp {
             .await
             .expect("Failed to execute post_author.")
     }
+
+    pub async fn generate_access_token(&mut self) {
+        self.api_token = generate_access_token(&self.db_pool)
+            .await
+            .expect("Failed to generate an API token for testing");
+    }
 }
 
 pub async fn spawn_app() -> TestApp {
@@ -170,9 +176,9 @@ pub async fn spawn_app() -> TestApp {
         .build()
         .unwrap();
 
-    let api_token = generate_access_token(&db_pool)
-        .await
-        .expect("Failed to generate an API token for testing");
+    let api_token = AuthData {
+        api_key: SecretString::from("none"),
+    };
 
     TestApp {
         address,
@@ -206,7 +212,7 @@ pub async fn configure_database(config: &DataBaseSettings) -> MySqlPool {
 }
 
 // Seed an ApiUser in the test DB, and generate a token to grant access to the restricted endpoints during testing.
-pub async fn generate_access_token(pool: &MySqlPool) -> Result<AuthData, anyhow::Error> {
+async fn generate_access_token(pool: &MySqlPool) -> Result<AuthData, anyhow::Error> {
     // Add a new entry in the ApiUser DB table.
     let client_id = ClientId::new();
     let query = sqlx::query!(
