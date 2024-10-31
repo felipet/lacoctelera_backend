@@ -23,6 +23,8 @@ async fn options_ingredient_returns_204() {
         .expect("Error in OPTIONS request");
 
     assert_eq!(response.status().as_u16(), 204);
+
+    test_app.db_pool.close().await;
 }
 
 #[actix_web::test]
@@ -46,4 +48,6 @@ async fn options_ingredient_returns_expected_headers() {
     assert!(response
         .headers()
         .contains_key("access-control-allow-origin"));
+
+    test_app.db_pool.close().await;
 }
