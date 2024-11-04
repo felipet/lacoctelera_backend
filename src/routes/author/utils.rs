@@ -4,9 +4,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::domain::{Author, DataDomainError, ServerError, SocialProfile};
+use crate::{
+    domain::{Author, DataDomainError, ServerError, SocialProfile},
+    routes::author::get::QueryData,
+};
 use names::Generator;
-use sqlx::{Executor, MySqlPool};
+use sqlx::{Executor, MySqlPool, Row};
 use std::error::Error;
 use tracing::{debug, error, instrument};
 use uuid::Uuid;
@@ -147,6 +150,66 @@ pub async fn get_author_from_db(
             Err(Box::new(e))
         }
     }
+}
+
+#[instrument(skip(pool))]
+pub async fn search_author_from_db(
+    pool: &MySqlPool,
+    search_string: QueryData,
+) -> Result<Vec<Author>, Box<dyn Error>> {
+    let mut found_authors = Vec::new();
+
+    // Obtain the highest priority token for the search.
+    let (query, value) = search_string.search_token()?;
+    // Compose the query string.
+    let query = format!(
+        r#"
+    SELECT id, name, surname, email, shareable, description, website
+    FROM Author
+    WHERE {query} = ?"#
+    );
+
+    debug!("Searching author using: {value}");
+
+    let query_result = sqlx::query(&query)
+        .bind(value)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| {
+            error!("{e}");
+            ServerError::DbError
+        })?;
+
+    for row in query_result {
+        debug!("Author found: {:?}", row);
+        let author: Result<Author, DataDomainError> = Author::new(
+            row.try_get("id").unwrap(),
+            row.try_get("name").unwrap(),
+            row.try_get("surname").unwrap(),
+            row.try_get("email").unwrap(),
+            match row.try_get("shareable") {
+                Ok(0) => Some(false),
+                _ => Some(true),
+            },
+            row.try_get("description").unwrap(),
+            row.try_get("website").unwrap(),
+            Some(&Vec::new()),
+        );
+
+        debug!("Author: {:?}", author);
+
+        let author = match author {
+            Ok(author) => author,
+            Err(e) => {
+                error!("{e}");
+                return Err(Box::new(ServerError::DbError));
+            }
+        };
+
+        found_authors.push(author);
+    }
+
+    Ok(found_authors)
 }
 
 #[instrument(skip(pool))]

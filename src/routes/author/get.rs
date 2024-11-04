@@ -6,17 +6,53 @@
 
 use crate::{
     authentication::{check_access, AuthData},
-    domain::{Author, AuthorBuilder, DataDomainError},
-    routes::author::utils::get_author_from_db,
+    domain::{AuthorBuilder, DataDomainError},
+    routes::author::utils::{get_author_from_db, search_author_from_db},
 };
 use actix_web::{
     get,
     web::{Data, Path, Query},
     HttpResponse,
 };
+use serde::Deserialize;
 use sqlx::MySqlPool;
 use std::error::Error;
 use tracing::{debug, info, instrument};
+use utoipa::IntoParams;
+
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct QueryData {
+    pub name: Option<String>,
+    pub surname: Option<String>,
+    pub email: Option<String>,
+}
+
+impl QueryData {
+    /// Returns the token that hash the highest priority in a search.
+    ///
+    /// # Description
+    ///
+    /// [QueryData] includes all the accepted tokens when a client requests a search of an author entry in the DB.
+    /// All the tokens are marked as optional, to allow clients use the token they prefer. The current search logic
+    /// only allows a single token search, which means that if multiple tokens are provided within the same request,
+    /// only one will be considered.
+    ///
+    /// The **email** hash the highest priority, followed by **name** and **surname**. This method inspects what tokens
+    /// where provided to the `struct`, and returns the one that hash the highest priority. If no token was provided,
+    /// an error is returned instead.
+    pub fn search_token(&self) -> Result<(&str, &str), DataDomainError> {
+        if self.email.is_some() {
+            Ok(("email", self.email.as_deref().unwrap()))
+        } else if self.name.is_some() {
+            Ok(("name", self.name.as_deref().unwrap()))
+        } else if self.surname.is_some() {
+            Ok(("surname", self.surname.as_deref().unwrap()))
+        } else {
+            info!("The given search params do not contain any valid token");
+            Err(DataDomainError::InvalidSearch)
+        }
+    }
+}
 
 /// GET method for the Author endpoint.
 ///
@@ -26,11 +62,11 @@ use tracing::{debug, info, instrument};
 /// with an API access token will retrieve the full author's descriptor. Unauthenticated clients will get the author's
 /// name only when using this method of the endpoint.
 #[utoipa::path(
-    get,
     tag = "Author",
     security(
         ("api_key" = [])
     ),
+    params(QueryData),
     responses(
         (
             status = 200,
@@ -75,22 +111,20 @@ use tracing::{debug, info, instrument};
         )
     )
 )]
-#[instrument]
+#[instrument(skip(_token, pool))]
 #[get("/author")]
 pub async fn search_author(
-    req: Query<Author>,
-    token: Query<AuthData>,
+    req: Query<QueryData>,
+    _token: Option<Query<AuthData>>,
     pool: Data<MySqlPool>,
 ) -> Result<HttpResponse, Box<dyn Error>> {
-    info!("Author ID: {:#?} requested", req.0);
-    info!("Sending default Author descriptor until the final logic is implemented.");
+    info!("Search authors requested");
+    let authors = search_author_from_db(&pool, req.0).await?;
 
-    let author = Author::default();
-
-    Ok(HttpResponse::NotImplemented()
+    Ok(HttpResponse::Ok()
         // Store author's data in the cache for a day.
         .append_header(("Cache-Control", "max-age=86400"))
-        .json(author))
+        .json(authors))
 }
 
 /// GET method for the Author endpoint.
