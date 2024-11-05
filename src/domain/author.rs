@@ -206,8 +206,39 @@ impl Author {
     }
 
     pub fn mute_private_data(&mut self) {
-        self.email = None;
-        self.description = None;
+        if !self.shareable() {
+            self.email = None;
+            self.description = None;
+        }
+    }
+
+    /// Update the internal attributes using another [Author] object.
+    ///
+    /// # Description
+    ///
+    /// This method takes as reference another [Author] object, and replaces the internal values, which are also
+    /// present in the given reference, using the values from the reference. This method is meant to implement a
+    /// PATCH logic.
+    pub fn update_from(&mut self, update: &Author) {
+        if update.name().is_some() {
+            self.name = Some(update.name().unwrap().into());
+        }
+        if update.surname().is_some() {
+            self.surname = Some(update.surname().unwrap().into());
+        }
+        if update.email().is_some() {
+            self.email = Some(update.email().unwrap().into());
+        }
+        if update.description().is_some() {
+            self.description = Some(update.description().unwrap().into());
+        }
+        if update.website().is_some() {
+            self.website = Some(update.website().unwrap().into());
+        }
+        self.shareable = Some(update.shareable());
+        if update.social_profiles().is_some() {
+            self.social_profiles = Some(Vec::from(update.social_profiles().unwrap()));
+        }
     }
 }
 
@@ -439,5 +470,75 @@ mod tests {
         assert_eq!(author.description(), None);
         assert_eq!(author.website().unwrap(), "http://janedoe.com");
         assert_eq!(author.social_profiles().unwrap(), social_profiles);
+    }
+
+    #[test]
+    fn modify_from() {
+        // Let's build the author under test
+        let id = Uuid::now_v7().to_string();
+        let name = "Jane";
+        let surname = "Doe";
+        let email = "jane@mail.com";
+        let website = "https://jane.com";
+        let description = "A dummy description";
+        let profiles = &[SocialProfile {
+            provider_name: "None".into(),
+            website: "https://none.com/jane".into(),
+        }];
+
+        let mut author = AuthorBuilder::default()
+            .set_id(&id)
+            .set_name(name)
+            .set_surname(surname)
+            .set_email(email)
+            .set_description(description)
+            .set_shareable(true)
+            .set_website(website)
+            .set_social_profiles(profiles)
+            .build()
+            .expect("Failed to build an author");
+
+        // First test case: modify only some of the attributes.
+        let author_dummy = AuthorBuilder::default()
+            .set_name("Stripped")
+            .set_surname("Zebra")
+            .build()
+            .expect("Failed to build an author");
+        author.update_from(&author_dummy);
+
+        assert_eq!(author.name, author_dummy.name);
+        assert_eq!(author.surname, author_dummy.surname);
+        assert_ne!(author.id, author_dummy.id);
+        assert_ne!(author.email, author_dummy.email);
+        assert_ne!(author.website, author_dummy.website);
+        assert_ne!(author.description, author_dummy.description);
+        assert_ne!(author.social_profiles, author_dummy.social_profiles);
+
+        // Second test case: modify all the attributes but the ID.
+        let name = "Juana";
+        let surname = "Cierva";
+        let email = "juana@mail.com";
+        let website = "https://juana.com";
+        let description = "Una descripción vana";
+        let profiles = &[SocialProfile {
+            provider_name: "None".into(),
+            website: "https://none.com/juana".into(),
+        }];
+
+        let author_spa = AuthorBuilder::default()
+            .set_id(&id)
+            .set_name(name)
+            .set_surname(surname)
+            .set_email(email)
+            .set_description(description)
+            .set_shareable(true)
+            .set_website(website)
+            .set_social_profiles(profiles)
+            .build()
+            .expect("Failed to build an author");
+
+        author.update_from(&author_spa);
+
+        assert_eq!(author, author_spa);
     }
 }
