@@ -95,6 +95,8 @@ pub struct ApplicationSettings {
     pub base_url: String,
     /// Log settings.
     pub log_settings: LogSettings,
+    /// Number of maximum workers for the Tokio runtime
+    pub max_workers: u16,
 }
 
 /// Data Base connection settings.
