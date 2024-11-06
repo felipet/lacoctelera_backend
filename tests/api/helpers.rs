@@ -11,7 +11,7 @@ use lacoctelera::{
     authentication::{generate_new_token_hash, generate_token, store_validation_token, AuthData},
     configuration::LogSettings,
     configuration::{DataBaseSettings, Settings},
-    domain::ClientId,
+    domain::{Author, ClientId},
     routes::ingredient::{FormData, QueryData},
     startup::Application,
     telemetry::configure_tracing,
@@ -136,7 +136,7 @@ impl TestApp {
             .get(url)
             .send()
             .await
-            .expect("Failed to execute post_author.")
+            .expect("Failed to execute get_author.")
     }
 
     pub async fn generate_access_token(&mut self) {
@@ -144,11 +144,34 @@ impl TestApp {
             .await
             .expect("Failed to generate an API token for testing");
     }
+
+    pub async fn patch_author(&self, body: &Author, credentials: Credentials) -> reqwest::Response {
+        let url = match credentials {
+            Credentials::WithCredentials => &format!(
+                "{}/author/{}?api_key={}",
+                &self.address,
+                body.id().as_deref().unwrap(),
+                &self.api_token.api_key.expose_secret()
+            ),
+            Credentials::NoCredentials => {
+                &format!("{}/author/{}", &self.address, body.id().as_deref().unwrap())
+            }
+        };
+
+        self.api_client
+            .patch(url)
+            .json(body)
+            .send()
+            .await
+            .expect("Failed to execute post_author.")
+    }
 }
 
 pub async fn spawn_app() -> TestApp {
     Lazy::force(&TRACING);
 
+    // Overwrite the DB name to provide a random name for every test runner. This way, we ensure that each test
+    // is run in a pristine DB environment.
     let configuration = {
         let mut c = Settings::new().expect("Failed to read configuration");
         c.database.db_name = Uuid::new_v4().to_string();

@@ -62,33 +62,25 @@ pub async fn register_new_author(pool: &MySqlPool, author: &Author) -> Result<Uu
         ServerError::DbError
     })?;
 
-    for social_profile in author.social_profiles().unwrap() {
-        // Let's try to extract only the user name. If the full URL is given, get the latest breadcrumb.
-        let user_account: &String = if social_profile.website.contains('/') {
-            &String::from(
-                *social_profile
-                    .website
-                    .split("/")
-                    .collect::<Vec<&str>>()
-                    .last()
-                    .unwrap(),
-            )
-        } else {
-            &social_profile.website
-        };
+    // If the author hash any social profile, add the entry in the DB.
+    if author.social_profiles().is_some() {
+        for social_profile in author.social_profiles().unwrap() {
+            // Let's try to extract only the user name. If the full URL is given, get the latest breadcrumb.
+            let user_account = extract_profile_account(&social_profile.website);
 
-        transaction
-            .execute(sqlx::query!(
-                "INSERT INTO AuthorHashSocialProfile (provider_name, user_name, author_id) VALUES (?,?,?);",
-                social_profile.provider_name,
-                user_account,
-                id,
-            ))
-            .await
-            .map_err(|e| {
-                error!("{e}");
-                ServerError::DbError
-            })?;
+            transaction
+                .execute(sqlx::query!(
+                    "INSERT INTO AuthorHashSocialProfile (provider_name, user_name, author_id) VALUES (?,?,?);",
+                    social_profile.provider_name,
+                    user_account,
+                    id,
+                ))
+                .await
+                .map_err(|e| {
+                    error!("{e}");
+                    ServerError::DbError
+                })?;
+        }
     }
 
     transaction.commit().await.map_err(|e| {
@@ -213,6 +205,65 @@ pub async fn search_author_from_db(
 }
 
 #[instrument(skip(pool))]
+pub async fn modify_author_from_db(
+    pool: &MySqlPool,
+    author: &Author,
+) -> Result<(), Box<dyn Error>> {
+    let query = sqlx::query!(
+        r#"UPDATE Author
+        SET name = ?, surname = ?, email = ?, shareable = ?, description = ?, website = ?
+        WHERE id = ?
+        "#,
+        author.name(),
+        author.surname(),
+        author.email(),
+        author.shareable(),
+        author.description(),
+        author.website(),
+        author.id(),
+    );
+
+    let mut transaction = pool.begin().await.map_err(|e| {
+        error!("{e}");
+        ServerError::DbError
+    })?;
+
+    transaction.execute(query).await.map_err(|e| {
+        error!("{e}");
+        ServerError::DbError
+    })?;
+
+    if author.social_profiles().is_some() {
+        for social_profile in author.social_profiles().unwrap() {
+            // Let's try to extract only the user name. If the full URL is given, get the latest breadcrumb.
+            let user_account = extract_profile_account(&social_profile.website);
+
+            transaction
+                .execute(sqlx::query!(
+                    r#"UPDATE AuthorHashSocialProfile
+                SET user_name = ?
+                WHERE provider_name = ? AND author_id = ?"#,
+                    user_account,
+                    social_profile.provider_name,
+                    author.id(),
+                ))
+                .await
+                .map_err(|e| {
+                    error!("{e}");
+                    ServerError::DbError
+                })?;
+        }
+    }
+
+    transaction.commit().await.map_err(|e| {
+        error!("{e}");
+        ServerError::DbError
+    })?;
+
+    Ok(())
+}
+
+#[instrument(skip(pool))]
 async fn author_social_profiles(
     pool: &MySqlPool,
     author_id: &str,
@@ -241,4 +292,16 @@ async fn author_social_profiles(
     }
 
     Ok(profiles)
+}
+
+fn extract_profile_account(profile_url: &str) -> &str {
+    if profile_url.contains('/') {
+        profile_url
+            .split("/")
+            .collect::<Vec<&str>>()
+            .last()
+            .unwrap()
+    } else {
+        profile_url
+    }
 }
