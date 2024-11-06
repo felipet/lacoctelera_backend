@@ -264,6 +264,25 @@ pub async fn modify_author_from_db(
 }
 
 #[instrument(skip(pool))]
+pub async fn delete_author_from_db(pool: &MySqlPool, author_id: &Uuid) -> Result<(), ServerError> {
+    sqlx::query!(
+        r#"
+        DELETE FROM Author
+        WHERE id = ?
+        "#,
+        author_id.to_string()
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| {
+        error!("{e}");
+        ServerError::DbError
+    })?;
+
+    Ok(())
+}
+
+#[instrument(skip(pool))]
 async fn author_social_profiles(
     pool: &MySqlPool,
     author_id: &str,

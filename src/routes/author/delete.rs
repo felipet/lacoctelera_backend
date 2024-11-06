@@ -6,12 +6,15 @@
 
 //! Author endpoint DELETE method.
 
-use crate::authentication::{check_access, AuthData};
+use crate::{
+    authentication::{check_access, AuthData},
+    routes::author::utils::delete_author_from_db,
+};
 use actix_web::{delete, web, HttpResponse};
-use secrecy::ExposeSecret;
 use sqlx::MySqlPool;
 use std::error::Error;
-use tracing::{debug, info, instrument};
+use tracing::{info, instrument};
+use uuid::Uuid;
 
 /// DELETE method for the Author endpoint (Restricted).
 ///
@@ -40,12 +43,14 @@ pub async fn delete_author(
     token: web::Query<AuthData>,
     pool: web::Data<MySqlPool>,
 ) -> Result<HttpResponse, Box<dyn Error>> {
-    debug!("Delete author: {:#?}", path);
-    debug!("Token: {}", token.api_key.expose_secret());
-    let token = token.api_key.clone();
+    info!("Author DELETE request received");
 
+    // // Access control
+    let token = token.api_key.clone();
     check_access(&pool, token).await?;
     info!("Access granted");
 
-    Ok(HttpResponse::NotImplemented().finish())
+    delete_author_from_db(&pool, &Uuid::parse_str(&path.0).unwrap()).await?;
+
+    Ok(HttpResponse::Ok().finish())
 }
