@@ -39,6 +39,7 @@ impl Application {
         );
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr().unwrap().port();
+        let max_workers = configuration.application.max_workers;
 
         let mut mail_client = MailjetClientBuilder::new(
             configuration.email_client.api_user,
@@ -58,6 +59,7 @@ impl Application {
             listener,
             connection_pool,
             configuration.application.base_url,
+            max_workers,
             mail_client,
         )
         .await?;
@@ -78,6 +80,7 @@ pub async fn run(
     listener: TcpListener,
     db_pool: MySqlPool,
     _base_url: String,
+    max_workers: u16,
     mail_client: MailjetClient,
 ) -> Result<Server, anyhow::Error> {
     let db_pool = web::Data::new(db_pool);
@@ -116,6 +119,7 @@ pub async fn run(
             .app_data(db_pool.clone())
             .app_data(mail_client.clone())
     })
+    .workers(max_workers as usize)
     .listen(listener)?
     .run();
 
