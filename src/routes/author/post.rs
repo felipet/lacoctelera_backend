@@ -33,13 +33,14 @@ use tracing::{debug, info, instrument};
 /// Authors are identified by an unique ID, thus there's no issue when the same names are registered multiple times.
 #[utoipa::path(
     post,
+    path = "/author",
     tag = "Author",
     security(
         ("api_key" = [])
     )
 )]
 #[instrument(skip(pool, token))]
-#[post("/author")]
+#[post("")]
 pub async fn post_author(
     req: Json<Author>,
     pool: Data<MySqlPool>,

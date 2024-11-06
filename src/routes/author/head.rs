@@ -16,6 +16,7 @@ use actix_web::{head, web, HttpResponse, Responder};
 /// check the header `Content-Length` and others without doing the full request.
 #[utoipa::path(
     head,
+    path = "/author",
     tag = "Author",
     responses(
         (
@@ -45,7 +46,7 @@ use actix_web::{head, web, HttpResponse, Responder};
         )
     )
 )]
-#[head("/author/{id}")]
+#[head("{id}")]
 pub async fn head_author(_path: web::Path<(String,)>) -> impl Responder {
     HttpResponse::NotImplemented().finish()
 }

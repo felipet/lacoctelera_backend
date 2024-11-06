@@ -17,6 +17,7 @@ use actix_web::{head, web, HttpResponse, Responder};
 /// check the header `Content-Length` and others without doing the full request.
 #[utoipa::path(
     head,
+    path = "/recipe",
     tag = "Recipe",
     responses(
         (
@@ -38,7 +39,7 @@ use actix_web::{head, web, HttpResponse, Responder};
         )
     )
 )]
-#[head("/recipe")]
+#[head("")]
 pub async fn head_recipe(_req: web::Query<RecipeQuery>) -> impl Responder {
     HttpResponse::NotImplemented().finish()
 }

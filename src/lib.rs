@@ -37,11 +37,9 @@ pub mod routes {
 
     pub mod ingredient {
         pub mod get;
-        pub mod options;
         pub mod post;
 
         pub use get::{search_ingredient, QueryData};
-        pub use options::options_ingredient;
         pub use post::{add_ingredient, FormData};
     }
 
@@ -49,7 +47,6 @@ pub mod routes {
         pub mod delete;
         pub mod get;
         pub mod head;
-        pub mod options;
         pub mod patch;
         pub mod post;
         mod utils;
@@ -57,7 +54,6 @@ pub mod routes {
         pub use delete::delete_author;
         pub use get::{get_author, search_author};
         pub use head::head_author;
-        pub use options::options_author;
         pub use patch::patch_author;
         pub use post::post_author;
     }
@@ -65,14 +61,12 @@ pub mod routes {
     pub mod recipe {
         pub mod get;
         pub mod head;
-        pub mod options;
         pub mod patch;
         pub mod post;
 
         pub use get::get_recipe;
         pub use get::search_recipe;
         pub use head::head_recipe;
-        pub use options::options_recipe;
         pub use patch::patch_recipe;
         pub use post::post_recipe;
     }
@@ -172,21 +166,16 @@ impl TryFrom<&str> for QueryId {
     paths(
         routes::ingredient::get::search_ingredient,
         routes::ingredient::post::add_ingredient,
-        routes::ingredient::options::options_ingredient,
         routes::health::echo,
-        routes::health::options_echo,
         routes::health::health_check,
-        routes::health::options_health,
         routes::author::get::search_author,
         routes::author::get::get_author,
         routes::author::patch::patch_author,
         routes::author::delete::delete_author,
-        routes::author::options::options_author,
         routes::author::head::head_author,
         routes::author::post::post_author,
         routes::recipe::get::search_recipe,
         routes::recipe::get::get_recipe,
-        routes::recipe::options::options_recipe,
         routes::recipe::head::head_recipe,
         routes::recipe::post::post_recipe,
         routes::recipe::patch::patch_recipe,

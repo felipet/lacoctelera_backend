@@ -27,6 +27,7 @@ pub struct QueryData {
 /// GET for the API's /ingredient endpoint.
 #[utoipa::path(
     get,
+    path = "/ingredient",
     tag = "Ingredient",
     params(
         QueryData
@@ -44,13 +45,12 @@ pub struct QueryData {
     )
 )]
 #[instrument(
-    target = "lacoctelera::ingredient_get",
     skip(pool, req),
     fields(
         ingredient_name = %req.name,
     )
 )]
-#[get("/ingredient")]
+#[get("")]
 pub async fn search_ingredient(
     pool: web::Data<MySqlPool>,
     req: web::Query<QueryData>,
@@ -86,12 +86,10 @@ pub async fn search_ingredient(
         Err(_) => Vec::new(),
     };
 
-    HttpResponse::Ok()
-        .append_header(("Access-Control-Allow-Origin", "*"))
-        .json(ingredients)
+    HttpResponse::Ok().json(ingredients)
 }
 
-#[get("/ingredient{id}")]
+#[get("{id}")]
 pub async fn get_ingredient(_req: web::Path<String>) -> impl Responder {
     HttpResponse::NotImplemented().finish()
 }

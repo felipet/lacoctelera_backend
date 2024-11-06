@@ -51,7 +51,7 @@ pub struct FormData {
         ingredient_desc = %ingredient.desc.as_deref().unwrap_or_default()
     )
 )]
-#[post("/ingredient")]
+#[post("")]
 pub async fn add_ingredient(
     ingredient: web::Json<FormData>,
     pool: web::Data<MySqlPool>,
@@ -72,9 +72,7 @@ pub async fn add_ingredient(
     };
 
     match insert_ingredient(&pool, ingredient).await {
-        Ok(_) => HttpResponse::Ok()
-            .append_header(("Access-Control-Allow-Origin", "*"))
-            .finish(),
+        Ok(_) => HttpResponse::Ok().finish(),
         Err(e) => {
             error!("The ingredient could not be inserted in the DB: {e}");
             HttpResponse::InternalServerError().body(e.to_string())

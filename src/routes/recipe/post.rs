@@ -27,12 +27,13 @@ use tracing::info;
 /// - *url*: Useful to link the recipe entry to another web resource.
 #[utoipa::path(
     post,
+    path = "/recipe",
     tag = "Recipe",
     security(
         ("api_key" = [])
     )
 )]
-#[post("/recipe")]
+#[post("")]
 pub async fn post_recipe(req: web::Json<Recipe>) -> HttpResponse {
     info!("Post new recipe: {:#?}", req.0);
 

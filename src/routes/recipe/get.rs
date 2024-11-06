@@ -36,6 +36,7 @@ use uuid::Uuid;
 /// *reposado*; and, whose rating is greater or equal to 4 stars.
 #[utoipa::path(
     get,
+    path = "/recipe",
     tag = "Recipe",
     params(RecipeQuery),
     responses(
@@ -60,7 +61,7 @@ use uuid::Uuid;
 
     )
 )]
-#[get("/recipe")]
+#[get("")]
 pub async fn search_recipe(req: web::Query<RecipeQuery>) -> impl Responder {
     let search_type: SearchType = (&req.0).try_into().expect("Wrong query");
 
@@ -104,6 +105,7 @@ pub async fn search_recipe(req: web::Query<RecipeQuery>) -> impl Responder {
 /// Retrieve a recipe from the DB using its unique ID.
 #[utoipa::path(
     get,
+    path = "/recipe",
     tag = "Recipe",
     responses(
         (
@@ -128,7 +130,7 @@ pub async fn search_recipe(req: web::Query<RecipeQuery>) -> impl Responder {
     )
 
 )]
-#[get("/recipe/{id}")]
+#[get("{id}")]
 pub async fn get_recipe(path: web::Path<(String,)>) -> impl Responder {
     info!("Recipe ID: {:#?} requested", path.0);
     info!("Sending default Recipe descriptor until the final logic is implemented.");

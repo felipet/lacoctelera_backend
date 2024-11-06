@@ -14,6 +14,7 @@ use actix_web::{
     web::{Data, Path, Query},
     HttpResponse,
 };
+use secrecy::SecretString;
 use serde::Deserialize;
 use sqlx::MySqlPool;
 use std::error::Error;
@@ -63,6 +64,7 @@ impl QueryData {
 /// name only when using this method of the endpoint.
 #[utoipa::path(
     tag = "Author",
+    path = "/author",
     security(
         ("api_key" = [])
     ),
@@ -111,15 +113,29 @@ impl QueryData {
         )
     )
 )]
-#[instrument(skip(_token, pool))]
-#[get("/author")]
+#[instrument(skip(token, pool))]
+#[get("")]
 pub async fn search_author(
     req: Query<QueryData>,
-    _token: Option<Query<AuthData>>,
+    token: Option<Query<AuthData>>,
     pool: Data<MySqlPool>,
 ) -> Result<HttpResponse, Box<dyn Error>> {
     info!("Search authors requested");
-    let authors = search_author_from_db(&pool, req.0).await?;
+    let mut authors = search_author_from_db(&pool, req.0).await?;
+
+    // Access control
+    let client_auth = match token {
+        Some(token) => {
+            check_access(&pool, SecretString::from(token.api_key.clone())).await?;
+            info!("Access granted");
+            true
+        }
+        None => false,
+    };
+
+    if !client_auth {
+        authors.iter_mut().for_each(|e| e.mute_private_data());
+    }
 
     Ok(HttpResponse::Ok()
         // Store author's data in the cache for a day.
@@ -136,6 +152,7 @@ pub async fn search_author(
 /// name only when using this method of the endpoint.
 #[utoipa::path(
     get,
+    path = "/author",
     tag = "Author",
     security(
         ("api_key" = [])
@@ -185,7 +202,7 @@ pub async fn search_author(
     )
 )]
 #[instrument(skip(token, pool, path))]
-#[get("/author/{id}")]
+#[get("{id}")]
 pub async fn get_author(
     path: Path<(String,)>,
     token: Option<Query<AuthData>>,
