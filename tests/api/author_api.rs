@@ -8,32 +8,27 @@ use crate::helpers::{spawn_app, Credentials, TestApp};
 use actix_web::http::StatusCode;
 use lacoctelera::domain::{Author, AuthorBuilder, SocialProfile};
 use pretty_assertions::assert_eq;
+use tracing::{debug, info};
 use uuid::Uuid;
 
 async fn valid_author() -> Author {
-    //let social_network_providers = social_network_providers().await;
+    let mut social_network_providers = social_network_providers().await;
+    social_network_providers
+        .iter_mut()
+        .for_each(|profile| profile.website.insert_str(profile.website.len(), "janedoe"));
 
     AuthorBuilder::default()
         .set_name("Jane")
         .set_surname("Doe")
         .set_email("jane_doe@mail.com")
         .set_shareable(true)
-        .set_social_profiles(&[
-            SocialProfile {
-                provider_name: "Instagram".into(),
-                website: "https://www.instagram.com/janedoe".into(),
-            },
-            SocialProfile {
-                provider_name: "X".into(),
-                website: "https://x.com/jd".into(),
-            },
-        ])
+        .set_social_profiles(&social_network_providers)
         .build()
         .expect("Failed to build a new Author")
 }
 
 /// The DB is preloaded with the supported Social Network providers by the service. So why not loading those for free?
-async fn _social_network_providers() -> Vec<SocialProfile> {
+async fn social_network_providers() -> Vec<SocialProfile> {
     let test_app = spawn_app().await;
 
     let record = sqlx::query_as!(
@@ -87,6 +82,7 @@ async fn post_author_with_credentials(test_app: &TestApp) -> Author {
     // Check that the received ID is parseable by Uuid.
     let response_author: Author =
         serde_json::from_str(&response_payload).expect("Failed to parse the response Author");
+    debug!("Response author: {:#?}", response_author);
 
     response_author
 }
@@ -111,14 +107,67 @@ async fn insert_and_retrieve_author() {
     let mut test_app = spawn_app().await;
     test_app.generate_access_token().await;
     let test_author = post_author_with_credentials(&test_app).await;
+    info!("Insert part passed");
+    debug!("New author's ID: {:?}", test_author.id());
+    get_author(&test_app, &test_author).await;
+    test_app.db_pool.close().await;
+}
+
+async fn get_author(test_app: &TestApp, author: &Author) {
     let response = test_app
         .get_author(
-            &test_author.id().expect("No ID for the test Author"),
+            &author.id().expect("No ID for the test Author"),
             Credentials::WithCredentials,
         )
         .await;
     assert_eq!(response.status().as_u16(), StatusCode::OK);
     let retrieved_author: Author = serde_json::from_str(&response.text().await.unwrap()).unwrap();
-    assert_eq!(test_author.id(), retrieved_author.id());
+    assert_eq!(author.id(), retrieved_author.id());
     assert_eq!(valid_author().await, retrieved_author);
+}
+
+#[actix_web::test]
+async fn update_author() {
+    let mut test_app = spawn_app().await;
+    test_app.generate_access_token().await;
+
+    let test_author = post_author_with_credentials(&test_app).await;
+    info!("Insert part passed");
+    debug!("New author's ID: {:?}", test_author.id());
+
+    let mut social_providers = social_network_providers().await;
+
+    social_providers
+        .iter_mut()
+        .for_each(|p| p.website.insert_str(p.website.len(), "juanacierva"));
+
+    let patched_author = AuthorBuilder::default()
+        .set_id(test_author.id().as_deref().unwrap())
+        .set_name("Juana")
+        .set_surname("Cierva")
+        .set_email("juana@mail.com")
+        .set_description("Una mujer desconocida")
+        .set_shareable(false)
+        .set_website("https://juana.com")
+        .set_social_profiles(&social_providers)
+        .build()
+        .expect("Failed to build an author descriptor");
+
+    let response = test_app
+        .patch_author(&patched_author, Credentials::WithCredentials)
+        .await;
+
+    assert_eq!(response.status().as_u16(), StatusCode::ACCEPTED);
+    info!("Patch passed");
+
+    let response = test_app
+        .get_author(
+            &patched_author.id().expect("No ID for the test Author"),
+            Credentials::WithCredentials,
+        )
+        .await;
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+    let retrieved_author: Author = serde_json::from_str(&response.text().await.unwrap()).unwrap();
+    assert_eq!(patched_author, retrieved_author);
+    test_app.db_pool.close().await;
 }
