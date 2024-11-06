@@ -30,6 +30,7 @@ use tracing::{debug, info, instrument};
 /// This method requires to authenticate the client using a valid [crate::AuthData::api_key].
 #[utoipa::path(
     patch,
+    path = "/author",
     tag = "Author",
     request_body(
         content = Author, description = "A partial definition of an Author entry.",
@@ -45,7 +46,7 @@ use tracing::{debug, info, instrument};
     )
 )]
 #[instrument(skip(pool, token))]
-#[patch("/author/{id}")]
+#[patch("{id}")]
 pub async fn patch_author(
     path: Path<(String,)>,
     req: Json<Author>,

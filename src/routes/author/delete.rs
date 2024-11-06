@@ -26,6 +26,7 @@ use uuid::Uuid;
 /// This method requires to authenticate the client using a valid [crate::AuthData::api_key].
 #[utoipa::path(
     delete,
+    path = "/author",
     tag = "Author",
     responses(
         (status = 204, description = "The author was deleted from the DB."),
@@ -37,7 +38,7 @@ use uuid::Uuid;
     )
 )]
 #[instrument]
-#[delete("/author/{id}")]
+#[delete("{id}")]
 pub async fn delete_author(
     path: web::Path<(String,)>,
     token: web::Query<AuthData>,
