@@ -263,7 +263,7 @@ pub async fn modify_author_from_db(
     Ok(())
 }
 
-#[instrument(skip(pool))]
+#[instrument(skip(pool, author_id))]
 pub async fn delete_author_from_db(pool: &MySqlPool, author_id: &Uuid) -> Result<(), ServerError> {
     sqlx::query!(
         r#"
