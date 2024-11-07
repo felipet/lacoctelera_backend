@@ -6,34 +6,39 @@
 
 //! Author endpoint head method.
 
-use actix_web::{head, web, HttpResponse, Responder};
+use crate::{domain::DataDomainError, routes::author::utils::get_author_from_db};
+use actix_web::{
+    head,
+    web::{Data, Path},
+    HttpResponse,
+};
+use sqlx::MySqlPool;
+use std::error::Error;
+use tracing::instrument;
 
-/// HEAD method for the Author endpoint (Public).
-///
-/// # Description
-///
-/// This method checks the headers that a GET method to the endpoint `/author/{id}` would respond. This is useful to
-/// check the header `Content-Length` and others without doing the full request.
+/// Metadata request for an author.
 #[utoipa::path(
     head,
-    path = "/author",
+    context_path = "/author/",
     tag = "Author",
     responses(
         (
             status = 200,
             description = "The given ID matches an existing author entry in the DB.",
             headers(
-                ("Cache-Control"),
-                ("Access-Control-Allow-Origin"),
-                ("Content-Type")
+                ("Content-Length"),
+                ("Content-Type"),
+                ("Date"),
+                ("Vary", description = "Origin,Access-Control-Request-Method,Access-Control-Request-Headers")
             )
         ),
         (
             status = 404,
             description = "The given author's ID was not found in the DB.",
             headers(
-                ("Cache-Control"),
-                ("Access-Control-Allow-Origin"),
+                ("Content-Length"),
+                ("Date"),
+                ("Vary", description = "Origin,Access-Control-Request-Method,Access-Control-Request-Headers")
             ),
         ),
         (
@@ -46,7 +51,21 @@ use actix_web::{head, web, HttpResponse, Responder};
         )
     )
 )]
+#[instrument(skip(pool, path), fields(author_id = %path.0))]
 #[head("{id}")]
-pub async fn head_author(_path: web::Path<(String,)>) -> impl Responder {
-    HttpResponse::NotImplemented().finish()
+pub async fn head_author(
+    path: Path<(String,)>,
+    pool: Data<MySqlPool>,
+) -> Result<HttpResponse, Box<dyn Error>> {
+    let author_id = &path.0;
+    // First: does the author exists?
+    let author = match get_author_from_db(&pool, author_id).await {
+        Ok(author) => author,
+        Err(e) => match e.downcast_ref() {
+            Some(DataDomainError::InvalidId) => return Ok(HttpResponse::NotFound().finish()),
+            _ => return Err(e),
+        },
+    };
+
+    Ok(HttpResponse::Ok().json(author))
 }
