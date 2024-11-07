@@ -6,7 +6,7 @@
 
 use crate::{
     domain::{Author, DataDomainError, ServerError, SocialProfile},
-    routes::author::get::QueryData,
+    routes::author::get::AuthorQueryParams,
 };
 use names::Generator;
 use sqlx::{Executor, MySqlPool, Row};
@@ -147,7 +147,7 @@ pub async fn get_author_from_db(
 #[instrument(skip(pool))]
 pub async fn search_author_from_db(
     pool: &MySqlPool,
-    search_string: QueryData,
+    search_string: AuthorQueryParams,
 ) -> Result<Vec<Author>, Box<dyn Error>> {
     let mut found_authors = Vec::new();
 
