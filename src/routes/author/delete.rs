@@ -8,49 +8,58 @@
 
 use crate::{
     authentication::{check_access, AuthData},
+    domain::DataDomainError,
     routes::author::utils::delete_author_from_db,
 };
-use actix_web::{delete, web, HttpResponse};
+use actix_web::{
+    delete,
+    web::{Data, Path, Query},
+    HttpResponse,
+};
 use sqlx::MySqlPool;
 use std::error::Error;
 use tracing::{info, instrument};
 use uuid::Uuid;
 
-/// DELETE method for the Author endpoint (Restricted).
+/// Delete an author from the system.
 ///
 /// # Description
 ///
-/// This method deletes an [Author] entry from the DB if the given [AuthorId] matches the ID of a
+/// This method deletes an **Author** entry from the DB if the given ID matches the ID of a
 /// registered author.
 ///
-/// This method requires to authenticate the client using a valid [crate::AuthData::api_key].
+/// This method requires to provide a valid API token.
 #[utoipa::path(
     delete,
-    path = "/author",
+    context_path = "/author/",
     tag = "Author",
-    responses(
-        (status = 204, description = "The author was deleted from the DB."),
-        (status = 401, description = "The client has no access to this resource."),
-        (status = 404, description = "An author identified by the given ID was not existing in the DB."),
-    ),
     security(
         ("api_key" = [])
+    ),
+    responses(
+        (status = 200, description = "The author was deleted from the DB."),
+        (status = 401, description = "The client has no access to this resource."),
+        (status = 404, description = "An author identified by the given ID didn't exist in the DB."),
     )
 )]
-#[instrument]
+#[instrument(skip(path, token, pool), fields(author_id = %path.0))]
 #[delete("{id}")]
 pub async fn delete_author(
-    path: web::Path<(String,)>,
-    token: web::Query<AuthData>,
-    pool: web::Data<MySqlPool>,
+    path: Path<(String,)>,
+    token: Query<AuthData>,
+    pool: Data<MySqlPool>,
 ) -> Result<HttpResponse, Box<dyn Error>> {
-    info!("Author DELETE request received");
-
-    // // Access control
+    // Access control
     check_access(&pool, &token.api_key).await?;
     info!("Access granted");
 
-    delete_author_from_db(&pool, &Uuid::parse_str(&path.0).unwrap()).await?;
+    let author_id = match Uuid::parse_str(&path.0) {
+        Ok(id) => id,
+        Err(_) => return Err(Box::new(DataDomainError::InvalidId)),
+    };
+
+    delete_author_from_db(&pool, &author_id).await?;
+    info!("Author {} deleted from the DB.", author_id.to_string());
 
     Ok(HttpResponse::Ok().finish())
 }

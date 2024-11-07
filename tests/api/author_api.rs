@@ -205,3 +205,23 @@ async fn head_request_works() {
     let response = test_app.head_author(&Uuid::now_v7().to_string()).await;
     assert_eq!(response.status().as_u16(), StatusCode::NOT_FOUND);
 }
+
+#[actix_web::test]
+async fn delete_request_works() {
+    let mut test_app = spawn_app().await;
+    test_app.generate_access_token().await;
+    let test_author = post_author_with_credentials(&test_app).await;
+    let response = test_app
+        .delete_author(&test_author.id().unwrap(), Credentials::NoCredentials)
+        .await;
+    assert_eq!(response.status().as_u16(), StatusCode::BAD_REQUEST);
+    let response = test_app
+        .delete_author(&test_author.id().unwrap(), Credentials::WithCredentials)
+        .await;
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+    // Right now, there is no check to ensure the author exists.
+    let response = test_app
+        .delete_author(&test_author.id().unwrap(), Credentials::WithCredentials)
+        .await;
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+}
