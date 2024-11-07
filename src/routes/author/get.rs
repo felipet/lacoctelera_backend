@@ -14,7 +14,6 @@ use actix_web::{
     web::{Data, Path, Query},
     HttpResponse,
 };
-use secrecy::SecretString;
 use serde::Deserialize;
 use sqlx::MySqlPool;
 use std::error::Error;
@@ -126,7 +125,7 @@ pub async fn search_author(
     // Access control
     let client_auth = match token {
         Some(token) => {
-            check_access(&pool, SecretString::from(token.api_key.clone())).await?;
+            check_access(&pool, &token.api_key).await?;
             info!("Access granted");
             true
         }
@@ -223,10 +222,9 @@ pub async fn get_author(
 
     // Check if the client hash privileges to retrieve the full description of the Author.
     if token.is_some() {
-        info!("The client included an API token to access the restricted resources");
-        let token = token.unwrap().api_key.clone();
-        check_access(&pool, token).await?;
-        info!("Access granted");
+        debug!("The client included an API token to access the restricted resources.");
+        check_access(&pool, &token.unwrap().api_key).await?;
+        debug!("Access granted");
     } else {
         info!("The client didn't include an API token to access the restricted resources. Private data will be muted.");
         if !author.shareable.unwrap() {

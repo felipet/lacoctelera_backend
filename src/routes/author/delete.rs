@@ -47,8 +47,7 @@ pub async fn delete_author(
     info!("Author DELETE request received");
 
     // // Access control
-    let token = token.api_key.clone();
-    check_access(&pool, token).await?;
+    check_access(&pool, &token.api_key).await?;
     info!("Access granted");
 
     delete_author_from_db(&pool, &Uuid::parse_str(&path.0).unwrap()).await?;

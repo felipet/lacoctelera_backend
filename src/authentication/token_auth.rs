@@ -122,7 +122,7 @@ pub async fn delete_token(pool: &MySqlPool, token: SecretString) -> Result<(), S
 ///
 /// Given a client access token, the stored hash of the token is retrieved from the database and compared. If the
 /// comparison is positive, it is checked if the client is enabled.
-pub async fn check_access(pool: &MySqlPool, token: SecretString) -> Result<(), Box<dyn Error>> {
+pub async fn check_access(pool: &MySqlPool, token: &SecretString) -> Result<(), Box<dyn Error>> {
     // Let's split the token to get the client's ID and the token itself.
     let token_split = token.expose_secret().split(':').collect::<Vec<&str>>();
     let client_id = token_split[0];
