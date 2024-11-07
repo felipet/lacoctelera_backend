@@ -64,7 +64,7 @@ async fn post_author_without_credentials(test_app: &TestApp) {
     let status_code = result.status().as_u16();
 
     // Check that we get the expected return code.
-    assert_eq!(status_code, 400);
+    assert_eq!(status_code, StatusCode::BAD_REQUEST);
 }
 
 async fn post_author_with_credentials(test_app: &TestApp) -> Author {
@@ -78,7 +78,7 @@ async fn post_author_with_credentials(test_app: &TestApp) -> Author {
         .expect("Failed to read the payload from the POST /author response");
 
     // Check that we get the expected return code.
-    assert_eq!(status_code, 202);
+    assert_eq!(status_code, StatusCode::OK);
     // Check that the received ID is parseable by Uuid.
     let response_author: Author =
         serde_json::from_str(&response_payload).expect("Failed to parse the response Author");
