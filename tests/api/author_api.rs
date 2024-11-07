@@ -171,3 +171,26 @@ async fn update_author() {
     assert_eq!(patched_author, retrieved_author);
     test_app.db_pool.close().await;
 }
+
+#[actix_web::test]
+async fn preflight_request_works() {
+    let test_app = spawn_app().await;
+    let response = test_app.options_author().await;
+
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+    let headers = response.headers();
+    assert_eq!(
+        headers.get("access-control-allow-headers").unwrap(),
+        &"content-type"
+    );
+
+    let headers = headers
+        .get("access-control-allow-methods")
+        .unwrap()
+        .to_str()
+        .expect("Failed to parse headers");
+    let allowed_methods = &["GET", "POST", "PATCH", "DELETE", "HEAD"];
+    for method in allowed_methods {
+        assert!(headers.contains(method));
+    }
+}
