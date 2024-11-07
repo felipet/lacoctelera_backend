@@ -163,7 +163,7 @@ impl TestApp {
             .json(body)
             .send()
             .await
-            .expect("Failed to execute post_author.")
+            .expect("Failed to execute patch_author.")
     }
 
     pub async fn options_author(&self) -> reqwest::Response {
@@ -205,7 +205,7 @@ impl TestApp {
             .delete(url)
             .send()
             .await
-            .expect("Failed to execute post_author.")
+            .expect("Failed to execute delete_author.")
     }
 }
 
