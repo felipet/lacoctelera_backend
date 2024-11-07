@@ -188,10 +188,10 @@ impl TryFrom<&str> for QueryId {
         )
     ),
     tags(
-        (name = "Ingredient", description = "Endpoints related to recipe's ingredients."),
-        (name = "Maintenance", description = "Endpoints related to server's status."),
-        (name = "Author", description = "Endpoints related to the management of authors."),
-        (name = "Recipe", description = "Endpoints related to the management of recipes.")
+        (name = "Ingredient", description = "Resources related to the Ingredient management"),
+        (name = "Maintenance", description = "Resources related to server's status"),
+        (name = "Author", description = "Resources related to the Author management"),
+        (name = "Recipe", description = "Resources related to the Recipe management")
     ),
     info(
         title = "La Coctelera API",
