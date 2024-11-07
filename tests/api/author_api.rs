@@ -194,3 +194,14 @@ async fn preflight_request_works() {
         assert!(headers.contains(method));
     }
 }
+
+#[actix_web::test]
+async fn head_request_works() {
+    let mut test_app = spawn_app().await;
+    test_app.generate_access_token().await;
+    let test_author = post_author_with_credentials(&test_app).await;
+    let response = test_app.head_author(&test_author.id().unwrap()).await;
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+    let response = test_app.head_author(&Uuid::now_v7().to_string()).await;
+    assert_eq!(response.status().as_u16(), StatusCode::NOT_FOUND);
+}

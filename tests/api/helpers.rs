@@ -176,6 +176,16 @@ impl TestApp {
             .await
             .expect("Failed to send OPTIONS request.")
     }
+
+    pub async fn head_author(&self, author_id: &str) -> reqwest::Response {
+        let url = format!("{}/author/{author_id}", &self.address);
+
+        self.api_client
+            .head(url)
+            .send()
+            .await
+            .expect("Failed to send OPTIONS request.")
+    }
 }
 
 pub async fn spawn_app() -> TestApp {
