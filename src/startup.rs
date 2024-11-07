@@ -98,7 +98,7 @@ pub async fn run(
             .allow_any_origin()
             .allowed_methods(vec!["GET", "POST", "PATCH", "DELETE", "HEAD"])
             .allowed_header(http::header::CONTENT_TYPE)
-            .max_age(3600);
+            .max_age(86400);
 
         let cors_recipe = Cors::default()
             .allow_any_origin()
