@@ -164,7 +164,7 @@ async fn non_existing_client_has_no_access_to_the_api() {
     let token = generate_token();
     info!("Token for the client: {token}");
     let token_string = SecretString::from(format!("{non_existing_client}:{token}"));
-    let expected_error = check_access(&test_app.db_pool, token_string).await;
+    let expected_error = check_access(&test_app.db_pool, &token_string).await;
     assert!(expected_error.is_err());
     match expected_error {
         Ok(_) => info!("Cant' really be here..."),
@@ -214,7 +214,7 @@ async fn disabled_account_fails_to_grant_access() {
         .expect("Failed to commit transaction to the DB");
 
     // Yet, the client's account is disabled.
-    assert!(check_access(&test_app.db_pool, token_string.clone())
+    assert!(check_access(&test_app.db_pool, &token_string)
         .await
         .is_err());
     info!("Disabled account check passed");
@@ -264,7 +264,7 @@ async fn enabled_and_validated_token_grants_access() {
         .await
         .expect("Failed to enable the test client in the DB");
     // Time to have access.
-    match check_access(&test_app.db_pool, token_string.clone()).await {
+    match check_access(&test_app.db_pool, &token_string).await {
         Ok(_) => info!("Enabled account check passed"),
         Err(e) => {
             error!("{e}");
@@ -316,7 +316,7 @@ async fn expired_token_fails_to_grant_access() {
         .await
         .expect("Failed to enable the test client in the DB");
 
-    match check_access(&test_app.db_pool, token_string.clone()).await {
+    match check_access(&test_app.db_pool, &token_string).await {
         Ok(_) => panic!("The access is granted to the client and it should be denied"),
         Err(e) => {
             error!("{e}");
