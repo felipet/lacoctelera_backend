@@ -49,8 +49,7 @@ pub async fn post_author(
     info!("New author entry received");
 
     // Access control
-    let token = token.api_key.clone();
-    check_access(&pool, token).await?;
+    check_access(&pool, &token.api_key).await?;
     info!("Access granted");
 
     // Log the received payload
