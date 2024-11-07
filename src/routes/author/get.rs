@@ -139,7 +139,6 @@ pub async fn search_author(
 
     Ok(HttpResponse::Ok()
         // Store author's data in the cache for a day.
-        .append_header(("Cache-Control", "max-age=86400"))
         .json(authors))
 }
 
@@ -235,8 +234,5 @@ pub async fn get_author(
         }
     }
 
-    Ok(HttpResponse::Ok()
-        // Store author's data in the cache for a day.
-        .append_header(("Cache-Control", "max-age=86400"))
-        .json(author))
+    Ok(HttpResponse::Ok().json(author))
 }
