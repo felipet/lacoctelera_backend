@@ -157,7 +157,7 @@ async fn update_author() {
         .patch_author(&patched_author, Credentials::WithCredentials)
         .await;
 
-    assert_eq!(response.status().as_u16(), StatusCode::ACCEPTED);
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
     info!("Patch passed");
 
     let response = test_app
