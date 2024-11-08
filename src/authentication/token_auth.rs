@@ -38,8 +38,14 @@ pub fn verify_token(
     match Argon2::default()
         .verify_password(given_token.expose_secret().as_bytes(), &expected_token_hash)
     {
-        Ok(_) => Ok(()),
-        Err(_) => Err(DataDomainError::InvalidAccessCredentials),
+        Ok(_) => {
+            debug!("The given token matches the stored hash");
+            Ok(())
+        }
+        Err(_) => {
+            debug!("The given token does not match the stored hash");
+            Err(DataDomainError::InvalidAccessCredentials)
+        }
     }
 }
 
@@ -116,7 +122,7 @@ pub async fn delete_token(pool: &MySqlPool, token: SecretString) -> Result<(), S
 ///
 /// Given a client access token, the stored hash of the token is retrieved from the database and compared. If the
 /// comparison is positive, it is checked if the client is enabled.
-pub async fn check_access(pool: &MySqlPool, token: SecretString) -> Result<(), Box<dyn Error>> {
+pub async fn check_access(pool: &MySqlPool, token: &SecretString) -> Result<(), Box<dyn Error>> {
     // Let's split the token to get the client's ID and the token itself.
     let token_split = token.expose_secret().split(':').collect::<Vec<&str>>();
     let client_id = token_split[0];
@@ -149,6 +155,10 @@ pub async fn check_access(pool: &MySqlPool, token: SecretString) -> Result<(), B
         }
     };
 
+    debug!(
+        "The client exists in the DB. Proceeding to compare the given token with the stored hash"
+    );
+
     // First, check if the given pair client-token matches the saved one. This avoid giving information about disabled
     // accounts or expired tokens to people that has no access to the API.
     verify_token(token_saved, token).map_err(Box::new)?;
@@ -162,9 +172,11 @@ pub async fn check_access(pool: &MySqlPool, token: SecretString) -> Result<(), B
             debug!("The client's token is expired");
             Err(Box::new(DataDomainError::ExpiredAccess))
         } else {
+            debug!("The token is valid and not expired");
             Ok(())
         }
     } else {
+        debug!("The account is disabled");
         Err(Box::new(DataDomainError::AccountDisabled))
     }
 }

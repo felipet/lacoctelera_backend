@@ -95,6 +95,8 @@ pub struct ApplicationSettings {
     pub base_url: String,
     /// Log settings.
     pub log_settings: LogSettings,
+    /// Number of maximum workers for the Tokio runtime
+    pub max_workers: u16,
 }
 
 /// Data Base connection settings.
@@ -217,6 +219,7 @@ impl DataBaseSettings {
             .username(&self.username)
             .password(self.password.expose_secret())
             .port(self.port)
+            .charset("utf8mb4")
             .ssl_mode(if self.require_ssl {
                 MySqlSslMode::Required
             } else {

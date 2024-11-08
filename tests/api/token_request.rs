@@ -1,10 +1,13 @@
 use crate::helpers::spawn_app;
 use chrono::{Local, TimeDelta};
-use lacoctelera::{authentication::*, domain::ClientId};
+use lacoctelera::{
+    authentication::*,
+    domain::{ClientId, DataDomainError},
+};
 use pretty_assertions::assert_eq;
 use secrecy::SecretString;
 use sqlx::{Executor, MySqlPool};
-use tracing::info;
+use tracing::{error, info};
 
 async fn seed_api_client(pool: &MySqlPool) -> Result<ClientId, anyhow::Error> {
     let client_id = ClientId::new();
@@ -36,6 +39,9 @@ async fn token_request_returns_202_for_valid_form_data() {
     let response = test_app.post_token_request(&body).await;
 
     assert_eq!(202, response.status().as_u16());
+
+    // This avoids a dummy warning message in the tracer.
+    test_app.db_pool.close().await;
 }
 
 #[actix_web::test]
@@ -57,6 +63,9 @@ async fn token_request_returns_200_for_existing_email() {
 
     // This time, the response shall be 406, as the email is already used.
     assert_eq!(406, response.status().as_u16());
+
+    // This avoids a dummy warning message in the tracer.
+    test_app.db_pool.close().await;
 }
 
 #[actix_web::test]
@@ -100,6 +109,9 @@ async fn register_new_token_request() {
         record.valid_until.date_naive(),
         Local::now().date_naive() + TimeDelta::days(1)
     );
+
+    // This avoids a dummy warning message in the tracer.
+    test_app.db_pool.close().await;
 }
 
 /// Test to check all the utility functions that handle tokens and the DB.
@@ -139,23 +151,42 @@ async fn token_management() {
     delete_token(&test_app.db_pool, token_hashed)
         .await
         .expect("Failed to delete the token from the DB");
+
+    // This avoids a dummy warning message in the tracer.
+    test_app.db_pool.close().await;
 }
 
-/// This time, we'll test the code that checks whether a client hash access to the API.
 #[actix_web::test]
-async fn api_access_by_token() {
+async fn non_existing_client_has_no_access_to_the_api() {
     let test_app = spawn_app().await;
-
-    // First: A client that does not exist.
     let non_existing_client = ClientId::new();
+    info!("Non existing ClientId = {non_existing_client}");
     let token = generate_token();
+    info!("Token for the client: {token}");
     let token_string = SecretString::from(format!("{non_existing_client}:{token}"));
-    assert!(check_access(&test_app.db_pool, token_string).await.is_err());
+    let expected_error = check_access(&test_app.db_pool, &token_string).await;
+    assert!(expected_error.is_err());
+    match expected_error {
+        Ok(_) => info!("Cant' really be here..."),
+        Err(e) => match e.downcast_ref() {
+            Some(DataDomainError::InvalidId) => info!("DataDomainError::InvalidId received"),
+            _ => panic!("Unexpected error type received"),
+        },
+    }
     info!("Non existing client_id check passed");
+    // This avoids a dummy warning message in the tracer.
+    test_app.db_pool.close().await;
+}
+
+#[actix_web::test]
+async fn disabled_account_fails_to_grant_access() {
+    let test_app = spawn_app().await;
 
     let client_id = seed_api_client(&test_app.db_pool)
         .await
         .expect("Failed to seed an ApiClient into the DB");
+
+    info!("ClientID seeded: {client_id}");
 
     let plain_token = generate_token();
     let token_string = SecretString::from(format!("{client_id}:{plain_token}"));
@@ -174,37 +205,125 @@ async fn api_access_by_token() {
     )
     .await
     .expect("Failed to store the token in the DB");
+    validate_client_account(&mut transaction, &client_id)
+        .await
+        .expect("Failed to validate the test client in the DB");
     transaction
         .commit()
         .await
         .expect("Failed to commit transaction to the DB");
 
     // Yet, the client's account is disabled.
-    assert!(check_access(&test_app.db_pool, token_string.clone())
+    assert!(check_access(&test_app.db_pool, &token_string)
         .await
         .is_err());
     info!("Disabled account check passed");
+
+    // This avoids a dummy warning message in the tracer.
+    test_app.db_pool.close().await;
+}
+
+/// This time, we'll test the code that checks whether a client hash access to the API.
+#[actix_web::test]
+async fn enabled_and_validated_token_grants_access() {
+    let test_app = spawn_app().await;
+
+    let client_id = seed_api_client(&test_app.db_pool)
+        .await
+        .expect("Failed to seed an ApiClient into the DB");
+
+    info!("ClientID seeded: {client_id}");
+
+    let plain_token = generate_token();
+    let token_string = SecretString::from(format!("{client_id}:{plain_token}"));
+    let token_hashed = generate_new_token_hash(SecretString::from(plain_token))
+        .expect("Failed to generate the token hash");
+    let mut transaction = test_app
+        .db_pool
+        .begin()
+        .await
+        .expect("Failed to begin a new DB transaction");
+    store_validation_token(
+        &mut transaction,
+        &token_hashed,
+        TimeDelta::days(1),
+        &client_id,
+    )
+    .await
+    .expect("Failed to store the token in the DB");
+    validate_client_account(&mut transaction, &client_id)
+        .await
+        .expect("Failed to validate the test client in the DB");
+    transaction
+        .commit()
+        .await
+        .expect("Failed to commit transaction to the DB");
+
     // Let's enable it.
     enable_client(&test_app.db_pool, &client_id)
         .await
         .expect("Failed to enable the test client in the DB");
     // Time to have access.
-    assert!(check_access(&test_app.db_pool, token_string.clone())
-        .await
-        .is_ok());
-    info!("Enabled account check passed");
+    match check_access(&test_app.db_pool, &token_string).await {
+        Ok(_) => info!("Enabled account check passed"),
+        Err(e) => {
+            error!("{e}");
+            panic!("Access was expected")
+        }
+    }
 
-    // Finally, let's play with the expiry dates.
-    let new_expiry_date = Local::now() - TimeDelta::days(2);
-    test_app
-        .db_pool
-        .execute(sqlx::query!(
-            "UPDATE ApiToken SET valid_until = ? WHERE client_id = ?;",
-            new_expiry_date,
-            client_id.to_string()
-        ))
+    // This avoids a dummy warning message in the tracer.
+    test_app.db_pool.close().await;
+}
+
+#[actix_web::test]
+async fn expired_token_fails_to_grant_access() {
+    let test_app = spawn_app().await;
+
+    let client_id = seed_api_client(&test_app.db_pool)
         .await
-        .expect("Failed to change the expiry date");
-    assert!(check_access(&test_app.db_pool, token_string).await.is_err());
-    info!("Expiry date check passed");
+        .expect("Failed to seed an ApiClient into the DB");
+
+    info!("ClientID seeded: {client_id}");
+
+    let plain_token = generate_token();
+    let token_string = SecretString::from(format!("{client_id}:{plain_token}"));
+    let token_hashed = generate_new_token_hash(SecretString::from(plain_token))
+        .expect("Failed to generate the token hash");
+    let mut transaction = test_app
+        .db_pool
+        .begin()
+        .await
+        .expect("Failed to begin a new DB transaction");
+    store_validation_token(
+        &mut transaction,
+        &token_hashed,
+        TimeDelta::days(-1),
+        &client_id,
+    )
+    .await
+    .expect("Failed to store the token in the DB");
+    validate_client_account(&mut transaction, &client_id)
+        .await
+        .expect("Failed to validate the test client in the DB");
+    transaction
+        .commit()
+        .await
+        .expect("Failed to commit transaction to the DB");
+
+    // Let's enable it.
+    enable_client(&test_app.db_pool, &client_id)
+        .await
+        .expect("Failed to enable the test client in the DB");
+
+    match check_access(&test_app.db_pool, &token_string).await {
+        Ok(_) => panic!("The access is granted to the client and it should be denied"),
+        Err(e) => {
+            error!("{e}");
+            info!("Expiry date check passed");
+        }
+    }
+
+    // This avoids a dummy warning message in the tracer.
+    test_app.db_pool.close().await;
 }

@@ -28,6 +28,8 @@ pub enum DataDomainError {
     InvalidRecipeCategory,
     #[error("The data provided in the form is invalid")]
     InvalidFormData,
+    #[error("The search criteria is invalid")]
+    InvalidSearch,
     #[error("Expired access token")]
     ExpiredAccess,
     #[error("Wrong access token")]

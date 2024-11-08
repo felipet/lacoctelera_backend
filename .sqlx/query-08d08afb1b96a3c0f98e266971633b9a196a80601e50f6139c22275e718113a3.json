@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "UPDATE AuthorHashSocialProfile\n                SET user_name = ?\n                WHERE provider_name = ? AND author_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "08d08afb1b96a3c0f98e266971633b9a196a80601e50f6139c22275e718113a3"
+}

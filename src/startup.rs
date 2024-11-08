@@ -11,8 +11,9 @@ use crate::{
     routes::{self, health},
     ApiDoc,
 };
+use actix_cors::Cors;
 use actix_files as fs;
-use actix_web::{dev::Server, web, App, HttpServer};
+use actix_web::{dev::Server, http, web, App, HttpServer};
 use mailjet_client::{MailjetClient, MailjetClientBuilder};
 use secrecy::ExposeSecret;
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool};
@@ -39,6 +40,7 @@ impl Application {
         );
         let listener = TcpListener::bind(address)?;
         let port = listener.local_addr().unwrap().port();
+        let max_workers = configuration.application.max_workers;
 
         let mut mail_client = MailjetClientBuilder::new(
             configuration.email_client.api_user,
@@ -58,6 +60,7 @@ impl Application {
             listener,
             connection_pool,
             configuration.application.base_url,
+            max_workers,
             mail_client,
         )
         .await?;
@@ -78,32 +81,61 @@ pub async fn run(
     listener: TcpListener,
     db_pool: MySqlPool,
     _base_url: String,
+    max_workers: u16,
     mail_client: MailjetClient,
 ) -> Result<Server, anyhow::Error> {
     let db_pool = web::Data::new(db_pool);
     let mail_client = web::Data::new(mail_client);
 
     let server = HttpServer::new(move || {
+        let cors_ingredient = Cors::default()
+            .allow_any_origin()
+            .allowed_methods(vec!["GET", "POST"])
+            .allowed_header(http::header::CONTENT_TYPE)
+            .max_age(3600);
+
+        let cors_author = Cors::default()
+            .allow_any_origin()
+            .allowed_methods(vec!["GET", "POST", "PATCH", "DELETE", "HEAD"])
+            .allowed_header(http::header::CONTENT_TYPE)
+            .max_age(86400);
+
+        let cors_recipe = Cors::default()
+            .allow_any_origin()
+            .allowed_methods(vec!["GET", "POST", "PATCH", "DELETE", "HEAD"])
+            .allowed_header(http::header::CONTENT_TYPE)
+            .max_age(3600);
+
         App::new()
             .wrap(TracingLogger::default())
             .service(routes::echo)
             .service(health::options_echo)
             .service(health::health_check)
             .service(health::options_health)
-            .service(routes::ingredient::search_ingredient)
-            .service(routes::ingredient::add_ingredient)
-            .service(routes::ingredient::options_ingredient)
-            .service(routes::author::search_author)
-            .service(routes::author::patch_author)
-            .service(routes::author::head_author)
-            .service(routes::author::options_author)
-            .service(routes::author::post_author)
-            .service(routes::author::delete_author)
-            .service(routes::recipe::get_recipe)
-            .service(routes::recipe::search_recipe)
-            .service(routes::recipe::options_recipe)
-            .service(routes::recipe::head_recipe)
-            .service(routes::recipe::post_recipe)
+            .service(
+                web::scope("/ingredient")
+                    .wrap(cors_ingredient)
+                    .service(routes::ingredient::search_ingredient)
+                    .service(routes::ingredient::add_ingredient),
+            )
+            .service(
+                web::scope("/author")
+                    .wrap(cors_author)
+                    .service(routes::author::search_author)
+                    .service(routes::author::patch_author)
+                    .service(routes::author::head_author)
+                    .service(routes::author::post_author)
+                    .service(routes::author::get_author)
+                    .service(routes::author::delete_author),
+            )
+            .service(
+                web::scope("/recipe")
+                    .wrap(cors_recipe)
+                    .service(routes::recipe::get_recipe)
+                    .service(routes::recipe::search_recipe)
+                    .service(routes::recipe::head_recipe)
+                    .service(routes::recipe::post_recipe),
+            )
             .service(fs::Files::new("/static", "./static/resources").show_files_listing())
             .service(
                 web::scope("/token")
@@ -115,6 +147,7 @@ pub async fn run(
             .app_data(db_pool.clone())
             .app_data(mail_client.clone())
     })
+    .workers(max_workers as usize)
     .listen(listener)?
     .run();
 

@@ -6,6 +6,7 @@
     tracing_level = "debug"
     host = "127.0.0.1"
     base_url = "http://127.0.0.1"
+    max_workers = 2
 [database]
     username = "root"
     password = "password"

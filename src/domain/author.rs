@@ -9,6 +9,7 @@
 use crate::{domain::DataDomainError, validate_id};
 use names::Generator;
 use serde::{Deserialize, Serialize};
+use std::cmp::PartialEq;
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 use validator::Validate;
@@ -43,7 +44,7 @@ use validator::Validate;
 /// The constructor [Author::default] is given to generate a new author entry using a random funny name.
 ///
 /// Prefer [AuthorBuilder] rather than [Author::new] to build a new [Author] instance.
-#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, IntoParams, Validate, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema, IntoParams, Validate)]
 pub struct Author {
     #[validate(custom(function = "validate_id"))]
     #[schema(value_type = String, example = "0191e13b-5ab7-78f1-bc06-be503a6c111b")]
@@ -74,9 +75,9 @@ pub struct SocialProfile {
     /// Name of the social network, i.e. Instagram, X, TikTok... 40 chars max.
     #[validate(length(max = 40))]
     pub provider_name: String,
-    /// User name registered by the author in the social network. 40 chars max.
-    #[validate(length(max = 40))]
-    pub user_name: String,
+    /// URL of the social network. 80 chars max.
+    #[validate(length(max = 80))]
+    pub website: String,
 }
 
 /// Implementation of the builder pattern for the [Author] `struct`.
@@ -203,6 +204,53 @@ impl Author {
     pub fn social_profiles(&self) -> Option<&[SocialProfile]> {
         self.social_profiles.as_deref()
     }
+
+    pub fn mute_private_data(&mut self) {
+        if !self.shareable() {
+            self.email = None;
+            self.description = None;
+        }
+    }
+
+    /// Update the internal attributes using another [Author] object.
+    ///
+    /// # Description
+    ///
+    /// This method takes as reference another [Author] object, and replaces the internal values, which are also
+    /// present in the given reference, using the values from the reference. This method is meant to implement a
+    /// PATCH logic.
+    pub fn update_from(&mut self, update: &Author) {
+        if update.name().is_some() {
+            self.name = Some(update.name().unwrap().into());
+        }
+        if update.surname().is_some() {
+            self.surname = Some(update.surname().unwrap().into());
+        }
+        if update.email().is_some() {
+            self.email = Some(update.email().unwrap().into());
+        }
+        if update.description().is_some() {
+            self.description = Some(update.description().unwrap().into());
+        }
+        if update.website().is_some() {
+            self.website = Some(update.website().unwrap().into());
+        }
+        self.shareable = Some(update.shareable());
+        if update.social_profiles().is_some() {
+            self.social_profiles = Some(Vec::from(update.social_profiles().unwrap()));
+        }
+    }
+}
+
+impl PartialEq for Author {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.surname == other.surname
+            && self.email == other.email
+            && self.shareable == other.shareable
+            && self.description == other.description
+            && self.social_profiles == other.social_profiles
+    }
 }
 
 impl AuthorBuilder {
@@ -291,11 +339,11 @@ mod tests {
         let social_profiles = [
             SocialProfile {
                 provider_name: "Facebook".into(),
-                user_name: "janedoe".into(),
+                website: "a web site".into(),
             },
             SocialProfile {
                 provider_name: "Instragram".into(),
-                user_name: "janedoe".into(),
+                website: "a web site".into(),
             },
         ];
 
@@ -327,11 +375,11 @@ mod tests {
         let social_profiles = [
             SocialProfile {
                 provider_name: "Facebook".into(),
-                user_name: "janedoe".into(),
+                website: "a web site".into(),
             },
             SocialProfile {
                 provider_name: "Instragram".into(),
-                user_name: "janedoe".into(),
+                website: "a web site".into(),
             },
         ];
 
@@ -385,5 +433,112 @@ mod tests {
             .set_description(&"dummy string".repeat(300))
             .build();
         assert!(author.is_err());
+    }
+
+    #[test]
+    fn mute_fields() {
+        let id = Uuid::now_v7().to_string();
+        let social_profiles = [
+            SocialProfile {
+                provider_name: "Facebook".into(),
+                website: "a web site".into(),
+            },
+            SocialProfile {
+                provider_name: "Instragram".into(),
+                website: "a web site".into(),
+            },
+        ];
+        let mut author = Author::new(
+            Some(id.clone()),
+            Some("Jane".to_string()),
+            Some("Doe".to_string()),
+            Some("jane_doe@mail.com".to_string()),
+            Some(false),
+            Some("An unknown person.".to_string()),
+            Some("http://janedoe.com".to_string()),
+            Some(&social_profiles),
+        )
+        .expect("Failed to create new instance of Author using new.");
+
+        author.mute_private_data();
+
+        assert_eq!(author.id().unwrap(), id);
+        assert_eq!(author.name().unwrap(), "Jane");
+        assert_eq!(author.surname().unwrap(), "Doe");
+        assert_eq!(author.email(), None);
+        assert_eq!(author.shareable(), false);
+        assert_eq!(author.description(), None);
+        assert_eq!(author.website().unwrap(), "http://janedoe.com");
+        assert_eq!(author.social_profiles().unwrap(), social_profiles);
+    }
+
+    #[test]
+    fn modify_from() {
+        // Let's build the author under test
+        let id = Uuid::now_v7().to_string();
+        let name = "Jane";
+        let surname = "Doe";
+        let email = "jane@mail.com";
+        let website = "https://jane.com";
+        let description = "A dummy description";
+        let profiles = &[SocialProfile {
+            provider_name: "None".into(),
+            website: "https://none.com/jane".into(),
+        }];
+
+        let mut author = AuthorBuilder::default()
+            .set_id(&id)
+            .set_name(name)
+            .set_surname(surname)
+            .set_email(email)
+            .set_description(description)
+            .set_shareable(true)
+            .set_website(website)
+            .set_social_profiles(profiles)
+            .build()
+            .expect("Failed to build an author");
+
+        // First test case: modify only some of the attributes.
+        let author_dummy = AuthorBuilder::default()
+            .set_name("Stripped")
+            .set_surname("Zebra")
+            .build()
+            .expect("Failed to build an author");
+        author.update_from(&author_dummy);
+
+        assert_eq!(author.name, author_dummy.name);
+        assert_eq!(author.surname, author_dummy.surname);
+        assert_ne!(author.id, author_dummy.id);
+        assert_ne!(author.email, author_dummy.email);
+        assert_ne!(author.website, author_dummy.website);
+        assert_ne!(author.description, author_dummy.description);
+        assert_ne!(author.social_profiles, author_dummy.social_profiles);
+
+        // Second test case: modify all the attributes but the ID.
+        let name = "Juana";
+        let surname = "Cierva";
+        let email = "juana@mail.com";
+        let website = "https://juana.com";
+        let description = "Una descripción vana";
+        let profiles = &[SocialProfile {
+            provider_name: "None".into(),
+            website: "https://none.com/juana".into(),
+        }];
+
+        let author_spa = AuthorBuilder::default()
+            .set_id(&id)
+            .set_name(name)
+            .set_surname(surname)
+            .set_email(email)
+            .set_description(description)
+            .set_shareable(true)
+            .set_website(website)
+            .set_social_profiles(profiles)
+            .build()
+            .expect("Failed to build an author");
+
+        author.update_from(&author_spa);
+
+        assert_eq!(author, author_spa);
     }
 }

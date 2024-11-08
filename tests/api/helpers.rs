@@ -8,13 +8,16 @@
 
 use actix_web::rt::spawn;
 use lacoctelera::{
+    authentication::{generate_new_token_hash, generate_token, store_validation_token, AuthData},
     configuration::LogSettings,
     configuration::{DataBaseSettings, Settings},
+    domain::{Author, ClientId},
     routes::ingredient::{FormData, QueryData},
     startup::Application,
     telemetry::configure_tracing,
 };
 use once_cell::sync::Lazy;
+use secrecy::{ExposeSecret, SecretString};
 use sqlx::{Connection, Executor, MySqlConnection, MySqlPool};
 use uuid::Uuid;
 
@@ -46,6 +49,12 @@ pub struct TestApp {
     pub address: String,
     pub db_pool: MySqlPool,
     pub api_client: reqwest::Client,
+    pub api_token: AuthData,
+}
+
+pub enum Credentials {
+    WithCredentials,
+    NoCredentials,
 }
 
 impl TestApp {
@@ -87,11 +96,124 @@ impl TestApp {
             .await
             .expect("Failed to execute post_token_request.")
     }
+
+    pub async fn post_author<Body>(
+        &self,
+        body: &Body,
+        credentials: Credentials,
+    ) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        let url = match credentials {
+            Credentials::WithCredentials => &format!(
+                "{}/author?api_key={}",
+                &self.address,
+                &self.api_token.api_key.expose_secret()
+            ),
+            Credentials::NoCredentials => &format!("{}/author", &self.address),
+        };
+
+        self.api_client
+            .post(url)
+            .json(body)
+            .send()
+            .await
+            .expect("Failed to execute post_author.")
+    }
+
+    pub async fn get_author(&self, author_id: &str, credentials: Credentials) -> reqwest::Response {
+        let url = match credentials {
+            Credentials::WithCredentials => &format!(
+                "{}/author/{author_id}?api_key={}",
+                &self.address,
+                &self.api_token.api_key.expose_secret()
+            ),
+            Credentials::NoCredentials => &format!("{}/author/{author_id}", &self.address),
+        };
+
+        self.api_client
+            .get(url)
+            .send()
+            .await
+            .expect("Failed to execute get_author.")
+    }
+
+    pub async fn generate_access_token(&mut self) {
+        self.api_token = generate_access_token(&self.db_pool)
+            .await
+            .expect("Failed to generate an API token for testing");
+    }
+
+    pub async fn patch_author(&self, body: &Author, credentials: Credentials) -> reqwest::Response {
+        let url = match credentials {
+            Credentials::WithCredentials => &format!(
+                "{}/author/{}?api_key={}",
+                &self.address,
+                body.id().as_deref().unwrap(),
+                &self.api_token.api_key.expose_secret()
+            ),
+            Credentials::NoCredentials => {
+                &format!("{}/author/{}", &self.address, body.id().as_deref().unwrap())
+            }
+        };
+
+        self.api_client
+            .patch(url)
+            .json(body)
+            .send()
+            .await
+            .expect("Failed to execute patch_author.")
+    }
+
+    pub async fn options_author(&self) -> reqwest::Response {
+        let url = format!("{}/author", &self.address);
+
+        self.api_client
+            .request(reqwest::Method::OPTIONS, url)
+            .header("Access-Control-Request-Method", "GET")
+            .send()
+            .await
+            .expect("Failed to send OPTIONS request.")
+    }
+
+    pub async fn head_author(&self, author_id: &str) -> reqwest::Response {
+        let url = format!("{}/author/{author_id}", &self.address);
+
+        self.api_client
+            .head(url)
+            .send()
+            .await
+            .expect("Failed to send OPTIONS request.")
+    }
+
+    pub async fn delete_author(
+        &self,
+        author_id: &str,
+        credentials: Credentials,
+    ) -> reqwest::Response {
+        let url = match credentials {
+            Credentials::WithCredentials => &format!(
+                "{}/author/{author_id}?api_key={}",
+                &self.address,
+                &self.api_token.api_key.expose_secret()
+            ),
+            Credentials::NoCredentials => &format!("{}/author/{author_id}", &self.address),
+        };
+
+        self.api_client
+            .delete(url)
+            .send()
+            .await
+            .expect("Failed to execute delete_author.")
+    }
 }
 
 pub async fn spawn_app() -> TestApp {
     Lazy::force(&TRACING);
 
+    // Overwrite the DB name to provide a random name for every test runner. This way, we ensure that each test
+    // is run in a pristine DB environment.
     let configuration = {
         let mut c = Settings::new().expect("Failed to read configuration");
         c.database.db_name = Uuid::new_v4().to_string();
@@ -115,14 +237,19 @@ pub async fn spawn_app() -> TestApp {
     // Instantiate an HTTP client to run the tests against the app's backend.
     let api_client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .timeout(std::time::Duration::from_secs(2))
+        .timeout(std::time::Duration::from_secs(10))
         .build()
         .unwrap();
+
+    let api_token = AuthData {
+        api_key: SecretString::from("none"),
+    };
 
     TestApp {
         address,
         db_pool,
         api_client,
+        api_token,
     }
 }
 
@@ -147,4 +274,47 @@ pub async fn configure_database(config: &DataBaseSettings) -> MySqlPool {
         .expect("Failed to migrate the testing DB.");
 
     conn_pool
+}
+
+// Seed an ApiUser in the test DB, and generate a token to grant access to the restricted endpoints during testing.
+async fn generate_access_token(pool: &MySqlPool) -> Result<AuthData, anyhow::Error> {
+    // Add a new entry in the ApiUser DB table.
+    let client_id = ClientId::new();
+    let query = sqlx::query!(
+        r#"
+        INSERT INTO ApiUser (id, email, validated,enabled,explanation) VALUES
+        (?, ?, 1, 1, ?);
+        "#,
+        client_id.to_string(),
+        "jane_doe@mail.com",
+        "Because I'm testing this thing",
+    );
+
+    let token = SecretString::from(generate_token());
+    let token_hashed = generate_new_token_hash(token.clone())?;
+
+    // Save it into the DB.
+    let mut transaction = pool
+        .begin()
+        .await
+        .expect("Failed to start a new DB transaction");
+    transaction
+        .execute(query)
+        .await
+        .expect("Failed to create a dummy user for testing");
+    store_validation_token(
+        &mut transaction,
+        &token_hashed,
+        chrono::TimeDelta::days(1),
+        &client_id,
+    )
+    .await?;
+    transaction
+        .commit()
+        .await
+        .expect("Failed to commit DB transaction");
+
+    Ok(AuthData {
+        api_key: SecretString::from(format!("{client_id}:{}", token.expose_secret())),
+    })
 }

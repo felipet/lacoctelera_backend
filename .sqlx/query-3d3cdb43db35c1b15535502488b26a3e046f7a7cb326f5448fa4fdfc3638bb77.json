@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "UPDATE Author\n        SET name = ?, surname = ?, email = ?, shareable = ?, description = ?, website = ?\n        WHERE id = ?\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "3d3cdb43db35c1b15535502488b26a3e046f7a7cb326f5448fa4fdfc3638bb77"
+}

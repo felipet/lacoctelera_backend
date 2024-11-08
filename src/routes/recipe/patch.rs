@@ -18,6 +18,7 @@ use actix_web::{patch, web, HttpResponse, Responder};
 /// This method requires to authenticate the client using a valid [crate::AuthData::api_key].
 #[utoipa::path(
     patch,
+    path = "/recipe",
     tag = "Recipe",
     request_body(
         content = Recipe, description = "A partial definition of an Recipe entry.",
@@ -32,7 +33,7 @@ use actix_web::{patch, web, HttpResponse, Responder};
         ("api_key" = [])
     )
 )]
-#[patch("/recipe/{id}")]
+#[patch("{id}")]
 pub async fn patch_recipe(_path: web::Path<(String,)>) -> impl Responder {
     HttpResponse::NotImplemented().finish()
 }
