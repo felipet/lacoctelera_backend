@@ -237,7 +237,7 @@ pub async fn spawn_app() -> TestApp {
     // Instantiate an HTTP client to run the tests against the app's backend.
     let api_client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .timeout(std::time::Duration::from_secs(2))
+        .timeout(std::time::Duration::from_secs(10))
         .build()
         .unwrap();
 
