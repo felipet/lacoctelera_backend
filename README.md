@@ -8,7 +8,7 @@
   <p>
 
 [![License](https://img.shields.io/github/license/felipet/lacoctelera_backend?style=flat-square)](https://github.com/felipet/lacoctelera_backend/blob/main/LICENSE)
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/felipet/lacoctelera_backend/rust.yml?style=flat-square&label=CI%20status)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/felipet/lacoctelera_backend/rust_main.yml?style=flat-square&label=CI%20status)
 ![Codecov](https://img.shields.io/codecov/c/github/felipet/lacoctelera_backend?token=82QNW2EJN1&style=flat-square)
 
   </p>
