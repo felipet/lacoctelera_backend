@@ -39,3 +39,9 @@ _Nothing yet_
 - Improved organisation of the HTML resources.
 - Initial definition of HTML responses for the token request pages.
 - Improved the CI scripts to reduce the completion time and distinguish between development and production jobs.
+
+## [0.4.0] - 2024-11-08
+
+- Full implementation of the `/author` endpoint.
+- Integration of `actix_cors` to handle CORS in all the endpoints.
+- Fixed bug with the client ID generation.
