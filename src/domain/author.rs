@@ -7,7 +7,6 @@
 //! Data objects related to Authors.
 
 use crate::{domain::DataDomainError, validate_id};
-use names::Generator;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use utoipa::{IntoParams, ToSchema};
@@ -119,7 +118,7 @@ impl std::default::Default for Author {
     fn default() -> Self {
         Author {
             id: Some(Uuid::now_v7()),
-            name: Some(Generator::default().next().unwrap()),
+            name: None,
             surname: None,
             email: None,
             shareable: Some(false),
@@ -212,6 +211,14 @@ impl Author {
         }
     }
 
+    pub fn enable_sharing(&mut self) {
+        self.shareable = Some(true);
+    }
+
+    pub fn disable_sharing(&mut self) {
+        self.shareable = Some(false);
+    }
+
     /// Update the internal attributes using another [Author] object.
     ///
     /// # Description
@@ -220,6 +227,9 @@ impl Author {
     /// present in the given reference, using the values from the reference. This method is meant to implement a
     /// PATCH logic.
     pub fn update_from(&mut self, update: &Author) {
+        if update.id().is_some() {
+            self.id = Some(Uuid::parse_str(&update.id().unwrap()).unwrap());
+        }
         if update.name().is_some() {
             self.name = Some(update.name().unwrap().into());
         }
@@ -235,7 +245,6 @@ impl Author {
         if update.website().is_some() {
             self.website = Some(update.website().unwrap().into());
         }
-        self.shareable = Some(update.shareable());
         if update.social_profiles().is_some() {
             self.social_profiles = Some(Vec::from(update.social_profiles().unwrap()));
         }
