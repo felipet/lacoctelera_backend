@@ -108,6 +108,7 @@ pub trait TestObject {
     async fn post<Body: serde::Serialize>(&self, body: &Body) -> Response;
     async fn delete(&self, id: &str) -> Response;
     async fn patch<Body: serde::Serialize>(&self, id: &str, body: &Body) -> Response;
+    async fn search(&self, query: &str) -> Response;
     fn db_pool(&self) -> &MySqlPool;
 }
 
@@ -147,6 +148,27 @@ impl TestApp {
             }
             Credentials::NoCredentials => "".into(),
         }
+    }
+
+    pub async fn search_test(
+        &self,
+        target_resource: Resource,
+        credentials: Credentials,
+        query: &str,
+    ) -> Response {
+        let mut credential = self.credentials_to_url(credentials);
+        if credentials == Credentials::WithCredentials {
+            credential.remove(0);
+            credential = format!("&{credential}");
+        }
+
+        let url = &format!("{}/{target_resource}{query}{credential}", &self.address);
+
+        debug!("GET for /author using: {url}");
+
+        self.api_client.get(url).send().await.expect(&format!(
+            "Failed to execute GET for the resource {target_resource}."
+        ))
     }
 
     pub async fn get_test(

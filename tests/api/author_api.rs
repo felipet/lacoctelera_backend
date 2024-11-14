@@ -71,6 +71,12 @@ impl TestObject for AuthorApiTester {
             .await
     }
 
+    async fn search(&self, query: &str) -> Response {
+        self.test_app
+            .search_test(self.resource, self.credentials, query)
+            .await
+    }
+
     async fn head(&self, id: &str) -> Response {
         self.test_app.head_test(self.resource, id).await
     }
@@ -199,11 +205,12 @@ async fn social_network_providers(pool: &MySqlPool) -> Vec<SocialProfile> {
 
 #[actix_web::test]
 async fn delete_no_credentials() -> Result<(), String> {
-    info!("Test Case::resource::/author (DELETE) -> Attempt to delete a non existing author");
-    let id = Uuid::now_v7().to_string();
     let mut test_builder = AuthorApiBuilder::default();
     TestBuilder::author_api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
+
+    info!("Test Case::resource::/author (DELETE) -> Attempt to delete a non existing author");
+    let id = Uuid::now_v7().to_string();
 
     assert_eq!(
         test.delete(&id).await.status().as_u16(),
@@ -230,11 +237,19 @@ async fn delete_no_credentials() -> Result<(), String> {
 
 #[actix_web::test]
 async fn delete_with_credentials() -> Result<(), String> {
-    info!("Test Case::resource::/author (DELETE) -> Attempt to delete a non existing author");
-    let id = Uuid::now_v7().to_string();
     let mut test_builder = AuthorApiBuilder::default();
     TestBuilder::author_api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
+
+    info!("Test Case::resource::/author (DELETE) -> Attempt to delete using a wrong author ID");
+    let id = rand::random::<i32>().to_string();
+    let response = test.delete(&id).await;
+    assert_eq!(
+        response.status().as_u16(),
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
+    info!("Test Case::resource::/author (DELETE) -> Attempt to delete a non existing author");
+    let id = Uuid::now_v7().to_string();
 
     // This might change in the future.
     assert_eq!(test.delete(&id).await.status().as_u16(), StatusCode::OK);
@@ -543,6 +558,165 @@ async fn patch_with_credentials() -> Result<(), String> {
     )
     .expect("Failed to deserialize author");
     assert_eq!(patched_author, retrieved_author);
+
+    Ok(())
+}
+
+#[actix_web::test]
+async fn search_no_credentials() -> Result<(), String> {
+    let mut test_builder = AuthorApiBuilder::default();
+    TestBuilder::author_api_no_credentials(&mut test_builder);
+    let test = test_builder.build().await;
+
+    info!("Test Case::resource::/author (GET) -> Search a nonexisting author");
+    let search = AuthorBuilder::default()
+        .set_name("Jane")
+        .build()
+        .expect("Failed to build a test author");
+    let query = format!("?name={}", search.name().unwrap());
+    let response = test.search(&query).await;
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+    let payload = serde_json::from_str::<Vec<Author>>(
+        &response
+            .text()
+            .await
+            .expect("Failed to retrieve response's payload"),
+    )
+    .expect("Failed to deserialize the payload");
+    assert!(payload.len() == 0);
+
+    info!("Test Case::resource::/author (GET) -> Search existing authors");
+    let author_shareable = valid_author(true, None);
+    let author_no_shareable = valid_author(false, None);
+    let ids = seed_author(
+        test.db_pool(),
+        &[author_shareable.clone(), author_no_shareable.clone()],
+    )
+    .await?;
+
+    let query = format!("?name={}", author_shareable.name().unwrap());
+    let response = test.search(&query).await;
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+    let payload = serde_json::from_str::<Vec<Author>>(
+        &response
+            .text()
+            .await
+            .expect("Failed to retrieve response's payload"),
+    )
+    .expect("Failed to deserialize the payload");
+    assert_eq!(payload.len(), 1);
+    let response_author = &payload[0];
+    assert!(ids
+        .contains(&Uuid::parse_str(&response_author.id().unwrap()).expect("Failed to parse Uuid")));
+    assert_eq!(author_shareable.name(), response_author.name());
+    assert_eq!(author_shareable.surname(), response_author.surname());
+    assert_eq!(author_shareable.email(), response_author.email());
+    assert_eq!(
+        author_shareable.description(),
+        response_author.description()
+    );
+    assert_eq!(author_shareable.website(), response_author.website());
+
+    let query = format!("?name={}", author_no_shareable.name().unwrap());
+    let response = test.search(&query).await;
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+    let payload = serde_json::from_str::<Vec<Author>>(
+        &response
+            .text()
+            .await
+            .expect("Failed to retrieve response's payload"),
+    )
+    .expect("Failed to deserialize the payload");
+    assert_eq!(payload.len(), 1);
+    let response_author = &payload[0];
+    assert!(ids
+        .contains(&Uuid::parse_str(&response_author.id().unwrap()).expect("Failed to parse Uuid")));
+    assert_eq!(author_no_shareable.name(), response_author.name());
+    assert_eq!(author_no_shareable.surname(), response_author.surname());
+    assert_eq!(None, response_author.email());
+    assert_eq!(None, response_author.description());
+    assert_eq!(author_no_shareable.website(), response_author.website());
+
+    Ok(())
+}
+
+#[actix_web::test]
+async fn search_with_credentials() -> Result<(), String> {
+    let mut test_builder = AuthorApiBuilder::default();
+    TestBuilder::author_api_with_credentials(&mut test_builder);
+    let test = test_builder.build().await;
+
+    info!("Test Case::resource::/author (GET) -> Search a nonexisting author");
+    let search = AuthorBuilder::default()
+        .set_name("Jane")
+        .build()
+        .expect("Failed to build a test author");
+    let query = format!("?name={}", search.name().unwrap());
+    let response = test.get(&query).await;
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+    let payload = serde_json::from_str::<Vec<Author>>(
+        &response
+            .text()
+            .await
+            .expect("Failed to retrieve response's payload"),
+    )
+    .expect("Failed to deserialize the payload");
+    assert!(payload.len() == 0);
+
+    info!("Test Case::resource::/author (GET) -> Search existing authors");
+    let author_shareable = valid_author(true, None);
+    let author_no_shareable = valid_author(false, None);
+    let ids = seed_author(
+        test.db_pool(),
+        &[author_shareable.clone(), author_no_shareable.clone()],
+    )
+    .await?;
+
+    let query = format!("?name={}", author_shareable.name().unwrap());
+    let response = test.search(&query).await;
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+    let payload = serde_json::from_str::<Vec<Author>>(
+        &response
+            .text()
+            .await
+            .expect("Failed to retrieve response's payload"),
+    )
+    .expect("Failed to deserialize the payload");
+    assert_eq!(payload.len(), 1);
+    let response_author = &payload[0];
+    assert!(ids
+        .contains(&Uuid::parse_str(&response_author.id().unwrap()).expect("Failed to parse Uuid")));
+    assert_eq!(author_shareable.name(), response_author.name());
+    assert_eq!(author_shareable.surname(), response_author.surname());
+    assert_eq!(author_shareable.email(), response_author.email());
+    assert_eq!(
+        author_shareable.description(),
+        response_author.description()
+    );
+    assert_eq!(author_shareable.website(), response_author.website());
+
+    let query = format!("?name={}", author_no_shareable.name().unwrap());
+    let response = test.search(&query).await;
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+    let payload = serde_json::from_str::<Vec<Author>>(
+        &response
+            .text()
+            .await
+            .expect("Failed to retrieve response's payload"),
+    )
+    .expect("Failed to deserialize the payload");
+    assert_eq!(payload.len(), 1);
+    let response_author = &payload[0];
+    assert!(ids
+        .contains(&Uuid::parse_str(&response_author.id().unwrap()).expect("Failed to parse Uuid")));
+    assert_eq!(author_no_shareable.name(), response_author.name());
+    assert_eq!(author_no_shareable.surname(), response_author.surname());
+    assert_eq!(author_no_shareable.email(), response_author.email());
+    assert_eq!(
+        author_no_shareable.description(),
+        response_author.description()
+    );
+    assert_eq!(author_no_shareable.website(), response_author.website());
 
     Ok(())
 }

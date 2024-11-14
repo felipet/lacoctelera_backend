@@ -70,6 +70,10 @@ impl TestObject for IngredientApiTester {
             .await
     }
 
+    async fn search(&self, _query: &str) -> Response {
+        todo!()
+    }
+
     async fn head(&self, _id: &str) -> Response {
         todo!()
     }
