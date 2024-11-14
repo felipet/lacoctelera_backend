@@ -379,7 +379,17 @@ mod tests {
     }
 
     #[test]
-    fn build_author_using_new() {
+    fn build_author() {
+        let mut author = Author::default();
+        assert!(Uuid::parse_str(&author.id().unwrap()).is_ok());
+        assert_eq!(author.name(), None);
+
+        assert!(!author.shareable());
+        author.enable_sharing();
+        assert!(author.shareable());
+        author.disable_sharing();
+        assert!(!author.shareable());
+
         let id = Uuid::now_v7().to_string();
         let social_profiles = [
             SocialProfile {
