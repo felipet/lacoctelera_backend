@@ -256,3 +256,39 @@ pub async fn get_author(
 
     Ok(HttpResponse::Ok().json(author))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+    use rstest::*;
+
+    #[rstest]
+    #[case(None, None, None, true, "")]
+    #[case(Some("Jane"), None, None, false, "name")]
+    #[case(None, Some("Doe"), None, false, "surname")]
+    #[case(None, None, Some("jane@mail.com"), false, "email")]
+    #[case(Some("Jane"), Some("Doe"), None, false, "name")]
+    #[case(None, Some("Doe"), Some("jane@mail.com"), false, "email")]
+    #[case(Some("Jane"), None, Some("jane@mail.com"), false, "email")]
+    #[case(Some("Jane"), Some("Doe"), Some("jane@mail.com"), false, "email")]
+    fn query_params(
+        #[case] name: Option<&str>,
+        #[case] surname: Option<&str>,
+        #[case] email: Option<&str>,
+        #[case] is_err: bool,
+        #[case] expected_token: &str,
+    ) {
+        let query_params = AuthorQueryParams {
+            name: name.map(String::from),
+            surname: surname.map(String::from),
+            email: email.map(String::from),
+        };
+
+        let token = query_params.search_token();
+        assert_eq!(token.is_err(), is_err);
+        if let Ok(token) = token {
+            assert_eq!(token.0, expected_token);
+        }
+    }
+}

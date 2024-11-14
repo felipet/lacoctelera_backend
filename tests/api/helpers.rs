@@ -9,16 +9,16 @@
 use actix_web::rt::spawn;
 use lacoctelera::{
     authentication::{generate_new_token_hash, generate_token, store_validation_token, AuthData},
-    configuration::LogSettings,
-    configuration::{DataBaseSettings, Settings},
-    domain::{Author, ClientId},
-    routes::ingredient::{FormData, QueryData},
+    configuration::{DataBaseSettings, LogSettings, Settings},
+    domain::ClientId,
     startup::Application,
     telemetry::configure_tracing,
 };
 use once_cell::sync::Lazy;
+use reqwest::Response;
 use secrecy::{ExposeSecret, SecretString};
 use sqlx::{Connection, Executor, MySqlConnection, MySqlPool};
+use tracing::debug;
 use uuid::Uuid;
 
 static TRACING: Lazy<()> = Lazy::new(|| {
@@ -52,160 +52,247 @@ pub struct TestApp {
     pub api_token: AuthData,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Credentials {
     WithCredentials,
     NoCredentials,
 }
 
+impl From<bool> for Credentials {
+    fn from(value: bool) -> Self {
+        if value {
+            Credentials::WithCredentials
+        } else {
+            Credentials::NoCredentials
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum Resource {
+    Ingredient,
+    Recipe,
+    Author,
+    TokenRequest,
+    TokenValidate,
+}
+
+impl From<&str> for Resource {
+    fn from(value: &str) -> Resource {
+        match value {
+            "ingredient" => Resource::Ingredient,
+            "author" => Resource::Author,
+            "recipe" => Resource::Recipe,
+            "token/request" => Resource::TokenRequest,
+            "token/request/validate" => Resource::TokenValidate,
+            _ => panic!("Wrong string given to make a Resource"),
+        }
+    }
+}
+
+impl std::fmt::Display for Resource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ss = match self {
+            Resource::Ingredient => "ingredient",
+            Resource::Author => "author",
+            Resource::Recipe => "recipe",
+            Resource::TokenRequest => "token/request",
+            Resource::TokenValidate => "token/request/validate",
+        };
+
+        write!(f, "{}", ss)
+    }
+}
+
+pub trait TestObject {
+    async fn get(&self, query: &str) -> Response;
+    async fn head(&self, id: &str) -> Response;
+    async fn options(&self) -> Response;
+    async fn post<Body: serde::Serialize>(&self, body: &Body) -> Response;
+    async fn delete(&self, id: &str) -> Response;
+    async fn patch<Body: serde::Serialize>(&self, id: &str, body: &Body) -> Response;
+    async fn search(&self, query: &str) -> Response;
+    fn db_pool(&self) -> &MySqlPool;
+}
+
+pub trait ApiTesterBuilder {
+    type ApiTester;
+
+    fn with_credentials(&mut self);
+    fn without_credentials(&mut self);
+    async fn build(self) -> Self::ApiTester;
+}
+
+pub struct TestBuilder;
+
+impl TestBuilder {
+    pub fn author_api_with_credentials(builder: &mut impl ApiTesterBuilder) {
+        builder.with_credentials();
+    }
+
+    pub fn author_api_no_credentials(builder: &mut impl ApiTesterBuilder) {
+        builder.without_credentials();
+    }
+
+    pub fn ingredient_api_with_credentials(builder: &mut impl ApiTesterBuilder) {
+        builder.with_credentials();
+    }
+
+    pub fn ingredient_api_no_credentials(builder: &mut impl ApiTesterBuilder) {
+        builder.without_credentials();
+    }
+}
+
 impl TestApp {
-    pub async fn get_ingredient(
-        &self,
-        query: &QueryData,
-        parameter: Option<&str>,
-    ) -> reqwest::Response {
-        let param = parameter.unwrap_or("name");
-
-        self.api_client
-            .get(&format!(
-                "{}/ingredient?{}={}",
-                &self.address, param, query.name
-            ))
-            .send()
-            .await
-            .expect("Failed to execute get_ingredient request.")
-    }
-
-    pub async fn post_ingredient(&self, body: &FormData) -> reqwest::Response {
-        self.api_client
-            .post(&format!("{}/ingredient", &self.address))
-            .json(body)
-            .header("Content-type", "application/json")
-            .send()
-            .await
-            .expect("Failed to execute post_ingredient request.")
-    }
-
-    pub async fn post_token_request<Body>(&self, body: &Body) -> reqwest::Response
-    where
-        Body: serde::Serialize,
-    {
-        self.api_client
-            .post(&format!("{}/token/request", &self.address))
-            .form(body)
-            .send()
-            .await
-            .expect("Failed to execute post_token_request.")
-    }
-
-    pub async fn post_author<Body>(
-        &self,
-        body: &Body,
-        credentials: Credentials,
-    ) -> reqwest::Response
-    where
-        Body: serde::Serialize,
-    {
-        let url = match credentials {
-            Credentials::WithCredentials => &format!(
-                "{}/author?api_key={}",
-                &self.address,
-                &self.api_token.api_key.expose_secret()
-            ),
-            Credentials::NoCredentials => &format!("{}/author", &self.address),
-        };
-
-        self.api_client
-            .post(url)
-            .json(body)
-            .send()
-            .await
-            .expect("Failed to execute post_author.")
-    }
-
-    pub async fn get_author(&self, author_id: &str, credentials: Credentials) -> reqwest::Response {
-        let url = match credentials {
-            Credentials::WithCredentials => &format!(
-                "{}/author/{author_id}?api_key={}",
-                &self.address,
-                &self.api_token.api_key.expose_secret()
-            ),
-            Credentials::NoCredentials => &format!("{}/author/{author_id}", &self.address),
-        };
-
-        self.api_client
-            .get(url)
-            .send()
-            .await
-            .expect("Failed to execute get_author.")
-    }
-
-    pub async fn generate_access_token(&mut self) {
-        self.api_token = generate_access_token(&self.db_pool)
-            .await
-            .expect("Failed to generate an API token for testing");
-    }
-
-    pub async fn patch_author(&self, body: &Author, credentials: Credentials) -> reqwest::Response {
-        let url = match credentials {
-            Credentials::WithCredentials => &format!(
-                "{}/author/{}?api_key={}",
-                &self.address,
-                body.id().as_deref().unwrap(),
-                &self.api_token.api_key.expose_secret()
-            ),
-            Credentials::NoCredentials => {
-                &format!("{}/author/{}", &self.address, body.id().as_deref().unwrap())
+    fn credentials_to_url(&self, credentials: Credentials) -> String {
+        match credentials {
+            Credentials::WithCredentials => {
+                format!("?api_key={}", &self.api_token.api_key.expose_secret())
             }
-        };
+            Credentials::NoCredentials => "".into(),
+        }
+    }
+
+    pub async fn search_test(
+        &self,
+        target_resource: Resource,
+        credentials: Credentials,
+        query: &str,
+    ) -> Response {
+        let mut credential = self.credentials_to_url(credentials);
+        if credentials == Credentials::WithCredentials {
+            credential.remove(0);
+            credential = format!("&{credential}");
+        }
+
+        let url = &format!("{}/{target_resource}{query}{credential}", &self.address);
+
+        debug!("GET for /author using: {url}");
+
+        self.api_client.get(url).send().await.expect(&format!(
+            "Failed to execute GET for the resource {target_resource}."
+        ))
+    }
+
+    pub async fn get_test(
+        &self,
+        target_resource: Resource,
+        credentials: Credentials,
+        query: &str,
+    ) -> Response {
+        let credentials = self.credentials_to_url(credentials);
+
+        let url = &format!("{}/{target_resource}{query}{credentials}", &self.address);
+
+        self.api_client.get(url).send().await.expect(&format!(
+            "Failed to execute GET for the resource {target_resource}."
+        ))
+    }
+
+    pub async fn post_test<Body>(
+        &self,
+        target_resource: Resource,
+        credentials: Credentials,
+        body: &Body,
+    ) -> Response
+    where
+        Body: serde::Serialize,
+    {
+        let credentials = self.credentials_to_url(credentials);
+
+        match target_resource {
+            Resource::TokenRequest => self
+                .api_client
+                .post(&format!("{}/{target_resource}{credentials}", &self.address))
+                .form(body)
+                .header("Content-type", "application/json")
+                .send()
+                .await
+                .expect(&format!(
+                    "Failed to execute POST for the resource {target_resource}."
+                )),
+            _ => self
+                .api_client
+                .post(&format!("{}/{target_resource}{credentials}", &self.address))
+                .json(body)
+                .header("Content-type", "application/json")
+                .send()
+                .await
+                .expect(&format!(
+                    "Failed to execute POST for the resource {target_resource}."
+                )),
+        }
+    }
+
+    pub async fn head_test(&self, target_resource: Resource, id: &str) -> Response {
+        let url = format!("{}/{target_resource}/{id}", &self.address);
+
+        self.api_client.head(url).send().await.expect(&format!(
+            "Failed to execute HEAD for the resource {target_resource}."
+        ))
+    }
+
+    pub async fn delete_test(
+        &self,
+        target_resource: Resource,
+        credentials: Credentials,
+        id: &str,
+    ) -> Response {
+        let credentials = self.credentials_to_url(credentials);
+
+        let url = format!("{}/{target_resource}/{id}{credentials}", &self.address);
+
+        self.api_client.delete(url).send().await.expect(&format!(
+            "Failed to execute HEAD for the resource {target_resource}."
+        ))
+    }
+
+    pub async fn patch_test<Body>(
+        &self,
+        target_resource: Resource,
+        credentials: Credentials,
+        id: &str,
+        body: &Body,
+    ) -> Response
+    where
+        Body: serde::Serialize,
+    {
+        let credentials = self.credentials_to_url(credentials);
+        let url = format!("{}/{target_resource}/{id}{credentials}", &self.address);
 
         self.api_client
             .patch(url)
             .json(body)
             .send()
             .await
-            .expect("Failed to execute patch_author.")
+            .expect("Failed to execute PATCH for the resource {target_resource}.")
     }
 
-    pub async fn options_author(&self) -> reqwest::Response {
-        let url = format!("{}/author", &self.address);
+    pub async fn options_test(&self, target_resource: Resource) -> Response {
+        let url = format!("{}/{target_resource}", &self.address);
 
         self.api_client
             .request(reqwest::Method::OPTIONS, url)
             .header("Access-Control-Request-Method", "GET")
             .send()
             .await
-            .expect("Failed to send OPTIONS request.")
+            .expect(&format!(
+                "Failed to execute HEAD for the resource {target_resource}."
+            ))
     }
 
-    pub async fn head_author(&self, author_id: &str) -> reqwest::Response {
-        let url = format!("{}/author/{author_id}", &self.address);
-
-        self.api_client
-            .head(url)
-            .send()
+    pub async fn post_token_request<Body>(&self, body: &Body) -> Response
+    where
+        Body: serde::Serialize,
+    {
+        self.post_test(Resource::TokenRequest, Credentials::NoCredentials, body)
             .await
-            .expect("Failed to send OPTIONS request.")
     }
 
-    pub async fn delete_author(
-        &self,
-        author_id: &str,
-        credentials: Credentials,
-    ) -> reqwest::Response {
-        let url = match credentials {
-            Credentials::WithCredentials => &format!(
-                "{}/author/{author_id}?api_key={}",
-                &self.address,
-                &self.api_token.api_key.expose_secret()
-            ),
-            Credentials::NoCredentials => &format!("{}/author/{author_id}", &self.address),
-        };
-
-        self.api_client
-            .delete(url)
-            .send()
+    pub async fn generate_access_token(&mut self) {
+        self.api_token = generate_access_token(&self.db_pool)
             .await
-            .expect("Failed to execute delete_author.")
+            .expect("Failed to generate an API token for testing");
     }
 }
 
