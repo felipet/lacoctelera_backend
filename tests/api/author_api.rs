@@ -98,17 +98,32 @@ async fn seed_author(pool: &MySqlPool, authors: &[Author]) -> Result<Vec<Uuid>, 
                 "Error seeding authors".to_string()
             })?;
         ids.push(id);
+
+        if let Some(profiles) = author.social_profiles() {
+            for profile in profiles {
+                transaction
+                    .execute(sqlx::query!(
+                        r#"
+                    INSERT INTO AuthorHashSocialProfile (provider_name, user_name, author_id)
+                    VALUES (?, ?, ?);
+                    "#,
+                        profile.provider_name,
+                        profile.website,
+                        id.to_string(),
+                    ))
+                    .await
+                    .map_err(|e| {
+                        error!("{e}");
+                        "Error seeding authors".to_string()
+                    })?;
+            }
+        }
     }
 
     transaction
         .commit()
         .await
         .expect("Failed to commit authors to the DB");
-
-    // TODO: Missing author's profiles
-    // for author in authors {
-    //     if let Some(profile) = author.social_profiles() {}
-    // }
 
     Ok(ids)
 }
@@ -141,21 +156,13 @@ fn valid_author(shareable: bool, social_providers: Option<Vec<SocialProfile>>) -
         .expect("Failed to build a new Author")
 }
 
-fn invalid_author() -> Author {
-    AuthorBuilder::default()
-        .build()
-        .expect("Failed to build a new empty Author")
-}
-
 /// The DB is preloaded with the supported Social Network providers by the service. So why not loading those for free?
-async fn social_network_providers() -> Vec<SocialProfile> {
-    let test_app = spawn_app().await;
-
+async fn social_network_providers(pool: &MySqlPool) -> Vec<SocialProfile> {
     let record = sqlx::query_as!(
         SocialProfile,
         "SELECT provider_name, website FROM SocialProfile;"
     )
-    .fetch_all(&test_app.db_pool)
+    .fetch_all(pool)
     .await
     .expect("Failed to retrieve Social Network profiles from the test DB");
 
@@ -492,7 +499,9 @@ async fn patch_with_credentials() -> Result<(), String> {
         .build()
         .await?;
 
-    let author = valid_author(true, None);
+    let social_providers = social_network_providers(test.db_pool()).await;
+
+    let author = valid_author(true, Some(social_providers));
     let ids = seed_author(test.db_pool(), &[author.clone()]).await?;
     let id = &ids[0].to_string();
 
@@ -504,6 +513,11 @@ async fn patch_with_credentials() -> Result<(), String> {
         .set_description("Una mujer desconocida")
         .set_shareable(true)
         .set_website("https://juana.com")
+        .set_social_profiles(
+            author
+                .social_profiles()
+                .expect("Failed to pass social profiles"),
+        )
         .build()
         .expect("Failed to build an author descriptor");
 
