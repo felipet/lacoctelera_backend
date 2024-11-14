@@ -45,3 +45,19 @@ _Nothing yet_
 - Full implementation of the `/author` endpoint.
 - Integration of `actix_cors` to handle CORS in all the endpoints.
 - Fixed bug with the client ID generation.
+
+## [0.5.0] - 2024-11-14
+
+### Added
+
+- Improve the integration tests (GH-34).
+- Improve the unit tests (GH-33).
+- Increase test coverage to a minimum of 70% (GH-32).
+
+### Bugs fixed
+
+- `Author::shareable` should not be overwritten by `update_from` (GH-37).
+
+### Bugs reported
+
+- API docs for the method GET of `/author` are wrong for an empty search (GH-38).
