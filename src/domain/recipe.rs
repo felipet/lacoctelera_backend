@@ -259,7 +259,7 @@ impl std::fmt::Display for RecipeQuery {
         }
 
         if self.tags.is_some() {
-            ss.insert_str(ss.len(), &format!(" tag={} ", self.tags.as_ref().unwrap()));
+            ss.insert_str(ss.len(), &format!("tag={} ", self.tags.as_ref().unwrap()));
         }
 
         if self.rating.is_some() {
@@ -444,5 +444,89 @@ mod tests {
         );
 
         assert!(recipe.is_err());
+    }
+
+    #[rstest]
+    #[case("Easy", RecipeCategory::Easy)]
+    #[case("mEdiUm", RecipeCategory::Medium)]
+    #[case("PRO", RecipeCategory::Pro)]
+    #[case("advanced", RecipeCategory::Advanced)]
+    fn string_converts_to_recipe_category(#[case] input: &str, #[case] output: RecipeCategory) {
+        let category = RecipeCategory::try_from(input).unwrap();
+        assert_eq!(category, output);
+    }
+
+    #[rstest]
+    #[case("easi")]
+    #[case("adv")]
+    fn wrong_string_fails_to_convert_to_recipe_category(#[case] input: &str) {
+        match RecipeCategory::try_from(input) {
+            Ok(_) => panic!("Conversion succeed when it should fail."),
+            Err(e) => match e {
+                DataDomainError::InvalidRecipeCategory => return,
+                _ => panic!("Different type of error received"),
+            },
+        }
+    }
+
+    #[rstest]
+    #[case(RecipeCategory::Easy, "easy")]
+    #[case(RecipeCategory::Medium, "medium")]
+    #[case(RecipeCategory::Advanced, "advanced")]
+    #[case(RecipeCategory::Pro, "pro")]
+    fn recipe_category_converts_to_string(#[case] category: RecipeCategory, #[case] value: &str) {
+        let category: String = category.into();
+        assert_eq!(&category, value);
+    }
+
+    #[rstest]
+    #[case(StarRate::Null, "0 Stars")]
+    #[case(StarRate::One, "1 Star")]
+    #[case(StarRate::Two, "2 Stars")]
+    #[case(StarRate::Three, "3 Stars")]
+    #[case(StarRate::Four, "4 Stars")]
+    #[case(StarRate::Five, "5 Stars")]
+    fn rating_converts_to_string(#[case] rating: StarRate, #[case] value: &str) {
+        let category: String = format!("{rating}");
+        assert_eq!(&category, value);
+    }
+
+    #[rstest]
+    fn recipe_query_format() {
+        let name = Some("Margarita".to_owned());
+        let tags = None;
+        let rating = None;
+        let category = Some(RecipeCategory::Medium);
+        let test_string = RecipeQuery {
+            name: name.clone(),
+            tags,
+            rating,
+            category: category.clone(),
+        };
+        let formatted_string = format!(
+            "Search tokens: name={} category={}",
+            name.unwrap(),
+            category.unwrap()
+        );
+        let test_format = format!("{test_string}");
+        assert_eq!(test_format, formatted_string);
+
+        let name = None;
+        let tags = Some("mocktail".to_owned());
+        let rating = Some(StarRate::Null);
+        let category = None;
+        let test_string = RecipeQuery {
+            name,
+            tags: tags.clone(),
+            rating: rating.clone(),
+            category,
+        };
+        let formatted_string = format!(
+            "Search tokens: tag={} rating={}",
+            tags.unwrap(),
+            rating.unwrap()
+        );
+        let test_format = format!("{test_string}");
+        assert_eq!(test_format, formatted_string);
     }
 }

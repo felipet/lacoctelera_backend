@@ -95,3 +95,73 @@ impl fmt::Display for ClientId {
         write!(f, "{}", self.0)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::{assert_eq, assert_ne};
+    use rstest::*;
+
+    #[rstest]
+    fn valid_data_builds() {
+        let name = "John Doe";
+        let email = "john_doe@mail.com";
+        let explanation = "I need access to destroy your DB";
+
+        let valid_token_request = TokenRequestData::new(Some(name), email, explanation);
+
+        assert!(valid_token_request.is_ok());
+
+        let valid = valid_token_request.unwrap();
+        assert_eq!(valid.name(), Some(name));
+        assert_eq!(valid.email(), email);
+        assert_eq!(valid.explanation(), explanation);
+
+        let name = None;
+
+        let valid_token_request = TokenRequestData::new(name, email, explanation);
+
+        assert!(valid_token_request.is_ok());
+
+        let valid = valid_token_request.unwrap();
+        assert_eq!(valid.name(), name);
+        assert_eq!(valid.email(), email);
+        assert_eq!(valid.explanation(), explanation);
+
+        assert_eq!(
+            &format!("{valid}"),
+            "Request explanation: \"I need access to destroy your DB\" by john_doe@mail.com"
+        );
+    }
+
+    #[rstest]
+    fn wrong_data_fails_to_build() {
+        let email = "john doe";
+        let explanation = "I need access to destroy your DB";
+
+        let valid_token_request = TokenRequestData::new(None, email, explanation);
+
+        assert!(valid_token_request.is_err());
+
+        let email = "johndoe@mail.com";
+        let explanation = "Give me";
+
+        let valid_token_request = TokenRequestData::new(None, email, explanation);
+
+        assert!(valid_token_request.is_err());
+    }
+
+    #[rstest]
+    fn construct_new_client_id() {
+        let client_id1 = ClientId::default();
+        let client_id2 = ClientId::default();
+
+        assert_ne!(client_id1.0, client_id2.0);
+        assert!(client_id1.0.to_string().len() == ID_LENGTH);
+        assert!(ClientId::from_str("0399ab0f").is_ok());
+        assert!(ClientId::from_str("0399ab0ñ").is_err());
+        assert!(ClientId::from_str("0399ab0f92").is_err());
+
+        assert_eq!(format!("{}", client_id1.0), format!("{client_id1}"));
+    }
+}
