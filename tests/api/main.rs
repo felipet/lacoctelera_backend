@@ -7,5 +7,6 @@
 mod author_api;
 mod get_ingredient;
 mod helpers;
+mod ingredient_api;
 mod post_ingredient;
 mod token_request;

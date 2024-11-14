@@ -4,7 +4,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::helpers::{spawn_app, ApiTesterBuilder, Credentials, Resource, TestApp, TestObject};
+use crate::helpers::{
+    spawn_app, ApiTesterBuilder, Credentials, Resource, TestApp, TestBuilder, TestObject,
+};
 use actix_web::http::StatusCode;
 use lacoctelera::domain::{Author, AuthorBuilder, SocialProfile};
 use names::Generator;
@@ -18,6 +20,32 @@ pub struct AuthorApiTester {
     resource: Resource,
     credentials: Credentials,
     test_app: TestApp,
+}
+
+#[derive(Default)]
+pub struct AuthorApiBuilder {
+    credentials: Option<Credentials>,
+}
+
+impl ApiTesterBuilder for AuthorApiBuilder {
+    type ApiTester = AuthorApiTester;
+
+    fn with_credentials(&mut self) {
+        self.credentials = Some(Credentials::WithCredentials);
+    }
+
+    fn without_credentials(&mut self) {
+        self.credentials = Some(Credentials::NoCredentials);
+    }
+
+    async fn build(self) -> AuthorApiTester {
+        let credentials = match self.credentials {
+            Some(credentials) => credentials,
+            None => Credentials::NoCredentials,
+        };
+
+        AuthorApiTester::new(credentials).await
+    }
 }
 
 impl AuthorApiTester {
@@ -173,11 +201,9 @@ async fn social_network_providers(pool: &MySqlPool) -> Vec<SocialProfile> {
 async fn delete_no_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (DELETE) -> Attempt to delete a non existing author");
     let id = Uuid::now_v7().to_string();
-    let test = ApiTesterBuilder::default()
-        .without_credentials()
-        .for_author()
-        .build()
-        .await?;
+    let mut test_builder = AuthorApiBuilder::default();
+    TestBuilder::author_api_no_credentials(&mut test_builder);
+    let test = test_builder.build().await;
 
     assert_eq!(
         test.delete(&id).await.status().as_u16(),
@@ -206,11 +232,9 @@ async fn delete_no_credentials() -> Result<(), String> {
 async fn delete_with_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (DELETE) -> Attempt to delete a non existing author");
     let id = Uuid::now_v7().to_string();
-    let test = ApiTesterBuilder::default()
-        .with_credentials()
-        .for_author()
-        .build()
-        .await?;
+    let mut test_builder = AuthorApiBuilder::default();
+    TestBuilder::author_api_with_credentials(&mut test_builder);
+    let test = test_builder.build().await;
 
     // This might change in the future.
     assert_eq!(test.delete(&id).await.status().as_u16(), StatusCode::OK);
@@ -238,11 +262,9 @@ async fn get_no_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (GET) -> Request an author whose ID doesn't exist");
     let author_id = Uuid::now_v7().to_string();
     let query = format!("/{author_id}");
-    let test = ApiTesterBuilder::default()
-        .without_credentials()
-        .for_author()
-        .build()
-        .await?;
+    let mut test_builder = AuthorApiBuilder::default();
+    TestBuilder::author_api_no_credentials(&mut test_builder);
+    let test = test_builder.build().await;
     assert_eq!(
         test.get(&query).await.status().as_u16(),
         StatusCode::NOT_FOUND
@@ -287,11 +309,9 @@ async fn get_with_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (GET) -> Request an author whose ID doesn't exist");
     let author_id = Uuid::now_v7().to_string();
     let query = format!("/{author_id}");
-    let test = ApiTesterBuilder::default()
-        .with_credentials()
-        .for_author()
-        .build()
-        .await?;
+    let mut test_builder = AuthorApiBuilder::default();
+    TestBuilder::author_api_with_credentials(&mut test_builder);
+    let test = test_builder.build().await;
     assert_eq!(
         test.get(&query).await.status().as_u16(),
         StatusCode::NOT_FOUND
@@ -351,11 +371,9 @@ async fn get_with_credentials() -> Result<(), String> {
 async fn head() -> Result<(), String> {
     info!("Test Case::resource::/author (HEAD) -> Attempt to request a non existing client");
     let id = Uuid::now_v7().to_string();
-    let test = ApiTesterBuilder::default()
-        .without_credentials()
-        .for_author()
-        .build()
-        .await?;
+    let mut test_builder = AuthorApiBuilder::default();
+    TestBuilder::author_api_no_credentials(&mut test_builder);
+    let test = test_builder.build().await;
 
     assert_eq!(
         test.head(&id).await.status().as_u16(),
@@ -377,11 +395,9 @@ async fn head() -> Result<(), String> {
 #[actix_web::test]
 async fn options() -> Result<(), String> {
     info!("Test Case::resource::/author (OPTIONS) -> Preflight check");
-    let test = ApiTesterBuilder::default()
-        .without_credentials()
-        .for_author()
-        .build()
-        .await?;
+    let mut test_builder = AuthorApiBuilder::default();
+    TestBuilder::author_api_no_credentials(&mut test_builder);
+    let test = test_builder.build().await;
     let response = test.options().await;
 
     assert_eq!(response.status().as_u16(), StatusCode::OK);
@@ -407,11 +423,9 @@ async fn options() -> Result<(), String> {
 #[actix_web::test]
 async fn post_no_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (POST) -> Add a new valid author entry");
-    let test = ApiTesterBuilder::default()
-        .without_credentials()
-        .for_author()
-        .build()
-        .await?;
+    let mut test_builder = AuthorApiBuilder::default();
+    TestBuilder::author_api_no_credentials(&mut test_builder);
+    let test = test_builder.build().await;
 
     let author = valid_author(true, None);
     let response = test.post(&author).await;
@@ -424,11 +438,9 @@ async fn post_no_credentials() -> Result<(), String> {
 #[actix_web::test]
 async fn post_with_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (POST) -> Add a new valid author entry");
-    let test = ApiTesterBuilder::default()
-        .with_credentials()
-        .for_author()
-        .build()
-        .await?;
+    let mut test_builder = AuthorApiBuilder::default();
+    TestBuilder::author_api_with_credentials(&mut test_builder);
+    let test = test_builder.build().await;
 
     let author_base = valid_author(true, None);
     let response = test.post(&author_base).await;
@@ -465,11 +477,9 @@ async fn post_with_credentials() -> Result<(), String> {
 #[actix_web::test]
 async fn patch_no_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (PATCH) -> Modify an existing author entry");
-    let test = ApiTesterBuilder::default()
-        .without_credentials()
-        .for_author()
-        .build()
-        .await?;
+    let mut test_builder = AuthorApiBuilder::default();
+    TestBuilder::author_api_no_credentials(&mut test_builder);
+    let test = test_builder.build().await;
 
     let author = valid_author(true, None);
     let ids = seed_author(test.db_pool(), &[author.clone()]).await?;
@@ -493,11 +503,9 @@ async fn patch_no_credentials() -> Result<(), String> {
 #[actix_web::test]
 async fn patch_with_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (PATCH) -> Modify an existing author entry");
-    let test = ApiTesterBuilder::default()
-        .with_credentials()
-        .for_author()
-        .build()
-        .await?;
+    let mut test_builder = AuthorApiBuilder::default();
+    TestBuilder::author_api_with_credentials(&mut test_builder);
+    let test = test_builder.build().await;
 
     let social_providers = social_network_providers(test.db_pool()).await;
 

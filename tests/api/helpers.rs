@@ -6,7 +6,7 @@
 
 //! Common stuff for running integration tests.
 
-use crate::author_api::AuthorApiTester;
+use crate::author_api::AuthorApiBuilder;
 use actix_web::rt::spawn;
 use lacoctelera::{
     authentication::{generate_new_token_hash, generate_token, store_validation_token, AuthData},
@@ -113,40 +113,31 @@ pub trait TestObject {
     fn db_pool(&self) -> &MySqlPool;
 }
 
-#[derive(Default)]
-pub struct ApiTesterBuilder {
-    resource: Option<Resource>,
-    credentials: Option<Credentials>,
+pub trait ApiTesterBuilder {
+    type ApiTester;
+
+    fn with_credentials(&mut self);
+    fn without_credentials(&mut self);
+    async fn build(self) -> Self::ApiTester;
 }
 
-impl ApiTesterBuilder {
-    pub fn for_author(mut self) -> Self {
-        self.resource = Some(Resource::Author);
+pub struct TestBuilder;
 
-        self
+impl TestBuilder {
+    pub fn author_api_with_credentials(builder: &mut impl ApiTesterBuilder) {
+        builder.with_credentials();
     }
 
-    pub fn with_credentials(mut self) -> Self {
-        self.credentials = Some(Credentials::WithCredentials);
-
-        self
+    pub fn author_api_no_credentials(builder: &mut impl ApiTesterBuilder) {
+        builder.without_credentials();
     }
 
-    pub fn without_credentials(mut self) -> Self {
-        self.credentials = Some(Credentials::NoCredentials);
-
-        self
+    pub fn ingredient_api_with_credentials(builder: &mut impl ApiTesterBuilder) {
+        builder.with_credentials();
     }
 
-    pub async fn build(self) -> Result<impl TestObject, String> {
-        let credentials = match self.credentials {
-            Some(c) => c,
-            None => Credentials::NoCredentials,
-        };
-
-        match self.resource {
-            _ => Ok(AuthorApiTester::new(credentials).await),
-        }
+    pub fn ingredient_api_no_credentials(builder: &mut impl ApiTesterBuilder) {
+        builder.without_credentials();
     }
 }
 
