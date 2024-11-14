@@ -6,13 +6,11 @@
 
 //! Common stuff for running integration tests.
 
-use crate::author_api::AuthorApiBuilder;
 use actix_web::rt::spawn;
 use lacoctelera::{
     authentication::{generate_new_token_hash, generate_token, store_validation_token, AuthData},
     configuration::{DataBaseSettings, LogSettings, Settings},
     domain::ClientId,
-    routes::ingredient::{FormData, QueryData},
     startup::Application,
     telemetry::configure_tracing,
 };
@@ -258,22 +256,6 @@ impl TestApp {
             .expect(&format!(
                 "Failed to execute HEAD for the resource {target_resource}."
             ))
-    }
-
-    pub async fn get_ingredient(&self, query: &QueryData, parameter: Option<&str>) -> Response {
-        let param = parameter.unwrap_or("name");
-
-        self.get_test(
-            Resource::Ingredient,
-            Credentials::NoCredentials,
-            &format!("?{param}={}", query.name),
-        )
-        .await
-    }
-
-    pub async fn post_ingredient(&self, body: &FormData) -> Response {
-        self.post_test(Resource::Ingredient, Credentials::NoCredentials, body)
-            .await
     }
 
     pub async fn post_token_request<Body>(&self, body: &Body) -> Response
