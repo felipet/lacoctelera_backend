@@ -452,12 +452,13 @@ async fn post_no_credentials() -> Result<(), String> {
 
 #[actix_web::test]
 async fn post_with_credentials() -> Result<(), String> {
-    info!("Test Case::resource::/author (POST) -> Add a new valid author entry");
     let mut test_builder = AuthorApiBuilder::default();
     TestBuilder::author_api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
-    let author_base = valid_author(true, None);
+    info!("Test Case::resource::/author (POST) -> Add a new valid author entry");
+    let social_profiles = Some(social_network_providers(test.db_pool()).await);
+    let author_base = valid_author(true, social_profiles);
     let response = test.post(&author_base).await;
     assert_eq!(response.status().as_u16(), StatusCode::OK);
     let payload = serde_json::from_str::<Author>(
@@ -479,11 +480,40 @@ async fn post_with_credentials() -> Result<(), String> {
             .unwrap(),
     )
     .expect("Failed to parse the received author");
-    assert_eq!(author_base.name(), author.name());
-    assert_eq!(author_base.surname(), author.surname());
+    assert_eq!(author, author_base);
+
+    info!(
+        "Test Case::resource::/author (POST) -> Add a new valid author entry using default values"
+    );
+    let author_base = AuthorBuilder::default()
+        .set_email("demo@mail.com")
+        .build()
+        .expect("Failed to build test author");
+    let response = test.post(&author_base).await;
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+    let payload = serde_json::from_str::<Author>(
+        &response
+            .text()
+            .await
+            .expect("Failed to extract the payload"),
+    )
+    .expect("Failed to deserialize payload");
+    let author = serde_json::from_str::<Author>(
+        &test
+            .get(&format!(
+                "/{}",
+                payload.id().expect("Failed to extract ID").to_string()
+            ))
+            .await
+            .text()
+            .await
+            .unwrap(),
+    )
+    .expect("Failed to parse the received author");
+    // Author's name and surname shall be given random values from the backend.
+    assert!(author.name().is_some());
+    assert!(author.surname().is_some());
     assert_eq!(author_base.email(), author.email());
-    assert_eq!(author_base.website(), author.website());
-    assert_eq!(author_base.description(), author.description());
     assert_eq!(author_base.shareable(), author.shareable());
 
     Ok(())
