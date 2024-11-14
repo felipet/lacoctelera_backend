@@ -1,4 +1,11 @@
-use crate::helpers::spawn_app;
+// Copyright 2024 Felipe Torres González
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+use crate::helpers::{spawn_app, Credentials, Resource};
+use actix_web::http::StatusCode;
 use chrono::{Local, TimeDelta};
 use lacoctelera::{
     authentication::*,
@@ -25,6 +32,60 @@ async fn seed_api_client(pool: &MySqlPool) -> Result<ClientId, anyhow::Error> {
     pool.execute(query).await?;
 
     Ok(client_id)
+}
+
+#[actix_web::test]
+async fn get_request() {
+    let test_app = spawn_app().await;
+
+    let response = test_app
+        .get_test(Resource::TokenRequest, Credentials::NoCredentials, "")
+        .await;
+
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+    let payload = response.text().await.unwrap();
+    assert!(payload.contains("<!DOCTYPE html>"));
+}
+
+#[actix_web::test]
+async fn get_validate() {
+    let test_app = spawn_app().await;
+
+    let body = serde_json::json!({
+        "email": "janedoe@mail.com",
+        "explanation": "A_very_long_sentence_for_testing",
+    });
+
+    // We need to get the request validation data straight from the DB, as the response is sent via email, not in
+    // the response of the POST.
+    let response = test_app.post_token_request(&body).await;
+    assert_eq!(response.status().as_u16(), StatusCode::ACCEPTED);
+
+    let query = sqlx::query!(r#"SELECT id FROM ApiUser WHERE email = 'janedoe@mail.com'"#)
+        .fetch_one(&test_app.db_pool)
+        .await
+        .expect("Failed to query ApiUser's ID");
+
+    let query = sqlx::query!(
+        r#"SELECT api_token FROM ApiToken WHERE client_id = ?"#,
+        query.id
+    )
+    .fetch_one(&test_app.db_pool)
+    .await
+    .expect("Failed to query ApiToke from the DB");
+
+    let response = test_app
+        .get_test(
+            Resource::TokenValidate,
+            Credentials::NoCredentials,
+            &format!("?email=janedoe@mail.com&token={}", query.api_token),
+        )
+        .await;
+
+    assert_eq!(response.status().as_u16(), StatusCode::ACCEPTED);
+    let payload = response.text().await.unwrap();
+    println!("{:?}", payload);
+    assert!(payload.contains("<!DOCTYPE html>"));
 }
 
 #[actix_web::test]

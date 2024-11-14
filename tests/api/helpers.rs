@@ -74,6 +74,7 @@ pub enum Resource {
     Recipe,
     Author,
     TokenRequest,
+    TokenValidate,
 }
 
 impl From<&str> for Resource {
@@ -83,6 +84,7 @@ impl From<&str> for Resource {
             "author" => Resource::Author,
             "recipe" => Resource::Recipe,
             "token/request" => Resource::TokenRequest,
+            "token/request/validate" => Resource::TokenValidate,
             _ => panic!("Wrong string given to make a Resource"),
         }
     }
@@ -95,6 +97,7 @@ impl std::fmt::Display for Resource {
             Resource::Author => "author",
             Resource::Recipe => "recipe",
             Resource::TokenRequest => "token/request",
+            Resource::TokenValidate => "token/request/validate",
         };
 
         write!(f, "{}", ss)
@@ -180,8 +183,6 @@ impl TestApp {
         let credentials = self.credentials_to_url(credentials);
 
         let url = &format!("{}/{target_resource}{query}{credentials}", &self.address);
-
-        debug!("GET for /author using: {url}");
 
         self.api_client.get(url).send().await.expect(&format!(
             "Failed to execute GET for the resource {target_resource}."
