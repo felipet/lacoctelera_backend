@@ -63,12 +63,14 @@ pub mod routes {
         pub mod head;
         pub mod patch;
         pub mod post;
+        pub mod utils;
 
         pub use get::get_recipe;
         pub use get::search_recipe;
         pub use head::head_recipe;
         pub use patch::patch_recipe;
         pub use post::post_recipe;
+        pub use utils::register_new_recipe;
     }
 
     pub mod token {

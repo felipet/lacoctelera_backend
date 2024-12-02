@@ -7,4 +7,5 @@
 mod author_api;
 mod helpers;
 mod ingredient_api;
+mod recipe_api;
 mod token_request;
