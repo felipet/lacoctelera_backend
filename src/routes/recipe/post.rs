@@ -4,9 +4,20 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::domain::Recipe;
-use actix_web::{post, web, HttpResponse};
-use tracing::info;
+use crate::{
+    authentication::{check_access, AuthData},
+    domain::Recipe,
+    routes::recipe::utils::register_new_recipe,
+};
+use actix_web::{
+    post,
+    web::{Data, Json, Query},
+    HttpResponse,
+};
+use serde_json::json;
+use sqlx::MySqlPool;
+use std::error::Error;
+use tracing::{debug, info, instrument};
 
 /// POST method for the /recipe endpoint (Restricted)
 ///
@@ -31,11 +42,48 @@ use tracing::info;
     tag = "Recipe",
     security(
         ("api_key" = [])
+    ),
+    responses(
+        (
+            status = 200,
+            description = "The Recipe was inserted in the DB.",
+            content_type = "application/json",
+            example = json!({"id": "0192e8d9-36cf-7ce3-82ef-0a7c9b2deefe"}),
+            headers(
+                ("Content-Length"),
+                ("Content-Type"),
+                ("Date"),
+                ("Vary", description = "Origin,Access-Control-Request-Method,Access-Control-Request-Headers")
+            ),
+        ),
+        (
+            status = 400,
+            description = "Missing API key. This endpoint is restricted to public access.",
+        ),
+        (
+            status = 429, description = "**Too many requests.**",
+            headers(
+                ("Cache-Control", description = "Cache control is set to *no-cache*."),
+                ("Access-Control-Allow-Origin"),
+                ("Retry-After", description = "Amount of time between requests (seconds).")
+            )
+        )
     )
 )]
+#[instrument(skip(pool, token))]
 #[post("")]
-pub async fn post_recipe(req: web::Json<Recipe>) -> HttpResponse {
+pub async fn post_recipe(
+    req: Json<Recipe>,
+    pool: Data<MySqlPool>,
+    token: Query<AuthData>,
+) -> Result<HttpResponse, Box<dyn Error>> {
     info!("Post new recipe: {:#?}", req.0);
 
-    HttpResponse::NotImplemented().finish()
+    // Access control
+    check_access(&pool, &token.api_key).await?;
+    debug!("Access granted");
+
+    let id = register_new_recipe(&pool, &req.0).await?;
+
+    Ok(HttpResponse::Ok().json(json!({"id": id.to_string()})))
 }
