@@ -9,7 +9,12 @@ use core::fmt;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::convert::{Into, TryFrom};
+use std::error::Error;
+use tracing::error;
 use utoipa::ToSchema;
+use uuid::Uuid;
+
+use super::DataDomainError;
 
 /// This value is set in the DB's schema definition (VARCHAR(40)).
 const MAX_NAME_LENGTH: usize = 40;
@@ -42,10 +47,10 @@ pub enum IngCategory {
 /// that joins an ingredient with a recipe  is included as an attribute of this object.
 #[derive(Clone, Serialize, Deserialize, ToSchema)]
 pub struct Ingredient {
+    id: Option<Uuid>,
     name: String,
     category: IngCategory,
-    desc: Option<String>,
-    id: Option<i32>,
+    description: Option<String>,
 }
 
 impl Ingredient {
@@ -71,18 +76,38 @@ impl Ingredient {
     ///
     /// A new [Ingredient] when the input parameters comply the format rules, an error otherwise
     /// that contains a message with information about the broken format rule.
-    pub fn parse(name: &str, category: &str, desc: Option<&str>) -> Result<Self, anyhow::Error> {
+    pub fn parse(
+        id: Option<&str>,
+        name: &str,
+        category: &str,
+        description: Option<&str>,
+    ) -> Result<Self, Box<dyn Error>> {
+        let id = if let Some(id) = id {
+            Some(Uuid::parse_str(id).map_err(|e| {
+                error!("Failed to parse an UUID from {e}");
+                Box::new(DataDomainError::InvalidId)
+            })?)
+        } else {
+            None
+        };
+
         let name = match Ingredient::check_name(name) {
             Ok(name) => name,
-            Err(e) => return Err(e),
+            Err(e) => {
+                error!("Invalid name ({e}) given to parse an Ingredient");
+                return Err(Box::new(DataDomainError::InvalidFormData));
+            }
         };
 
         let category = category.try_into()?;
 
-        let desc = match desc {
+        let description = match description {
             Some(desc) => match Ingredient::check_desc(desc) {
                 Ok(desc) => Some(desc),
-                Err(e) => return Err(e),
+                Err(e) => {
+                    error!("Invalid description ({e}) given to parse an Ingredient");
+                    return Err(Box::new(DataDomainError::InvalidFormData));
+                }
             },
             None => None,
         };
@@ -90,8 +115,8 @@ impl Ingredient {
         Ok(Self {
             name,
             category,
-            desc,
-            id: None,
+            description,
+            id,
         })
     }
 
@@ -107,23 +132,17 @@ impl Ingredient {
 
     /// Get the description of the Ingredient. Wrapped to allow empty descriptions.
     pub fn desc(&self) -> Option<&str> {
-        self.desc.as_deref()
+        self.description.as_deref()
     }
 
     /// Get the ingredient's ID in the `Cocktail` data base.
-    pub fn id(&self) -> Option<i32> {
+    pub fn id(&self) -> Option<Uuid> {
         self.id
     }
 
     /// Set the ID of the ingredient in the `Cocktail` data base.
-    pub fn set_id(&mut self, id: i32) {
+    pub fn set_id(&mut self, id: Uuid) {
         self.id = Some(id);
-    }
-
-    pub fn build_id(mut self, id: i32) -> Self {
-        self.id = Some(id);
-
-        self
     }
 
     /// Check that a string is valid as [Ingredient::name].
@@ -208,7 +227,9 @@ impl Ingredient {
 
 impl PartialEq for Ingredient {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.category == other.category && self.desc == other.desc
+        self.name == other.name
+            && self.category == other.category
+            && self.description == other.description
     }
 }
 
@@ -260,7 +281,7 @@ impl fmt::Debug for Ingredient {
             "'name': '{}', 'category': '{}', 'desc': '{}'",
             self.name,
             self.category,
-            self.desc.as_deref().unwrap_or("")
+            self.description.as_deref().unwrap_or("")
         )
     }
 }

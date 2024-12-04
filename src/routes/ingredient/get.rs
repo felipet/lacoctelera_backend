@@ -8,6 +8,7 @@ use crate::domain::Ingredient;
 use actix_web::{get, web, HttpResponse, Responder, Result};
 use serde::Deserialize;
 use sqlx::MySqlPool;
+use std::error::Error;
 use tracing::{debug, info, instrument};
 use utoipa::IntoParams;
 
@@ -56,7 +57,7 @@ pub async fn search_ingredient(
     req: web::Query<QueryData>,
 ) -> impl Responder {
     // First, validate the given form as a correct name for the instantiation of an Ingredient.
-    let query_ingredient = match Ingredient::parse(&req.name, "other", None) {
+    let query_ingredient = match Ingredient::parse(None, &req.name, "other", None) {
         Ok(ingredient) => {
             info!(
                 "Received search request for an ingredient identified by: '{}'",
@@ -98,22 +99,23 @@ pub async fn get_ingredient(_req: web::Path<String>) -> impl Responder {
 async fn check_ingredient(
     pool: &MySqlPool,
     ingredient: Ingredient,
-) -> Result<Vec<Ingredient>, anyhow::Error> {
+) -> Result<Vec<Ingredient>, Box<dyn Error>> {
     let rows = sqlx::query!(
-        r#"SELECT `id`, `name`, `category`, `desc` FROM Ingredient i WHERE i.name like ?"#,
+        r#"SELECT `id`, `name`, `category`, `description` FROM Ingredient i WHERE i.name like ?"#,
         format!("%{}%", ingredient.name()),
     )
     .fetch_all(pool)
     .await?;
 
-    let ingredients = rows
-        .iter()
-        .map(|r| {
-            Ingredient::parse(r.name.as_str(), r.category.as_str(), r.desc.as_deref())
-                .unwrap()
-                .build_id(r.id)
-        })
-        .collect();
+    let mut ingredients = Vec::new();
+    for r in rows {
+        ingredients.push(Ingredient::parse(
+            Some(&r.id),
+            r.name.as_str(),
+            r.category.as_str(),
+            r.description.as_deref(),
+        )?);
+    }
 
     Ok(ingredients)
 }
