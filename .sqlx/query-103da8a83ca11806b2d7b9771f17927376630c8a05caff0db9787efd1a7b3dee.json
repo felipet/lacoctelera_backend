@@ -1,15 +1,15 @@
 {
   "db_name": "MySQL",
-  "query": "SELECT `id`, `name`, `category`, `desc` FROM Ingredient i WHERE i.name like ?",
+  "query": "SELECT `id`, `name`, `category`, `description` FROM Ingredient i WHERE i.name like ?",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
         "name": "id",
         "type_info": {
-          "type": "Long",
-          "flags": "NOT_NULL | PRIMARY_KEY | AUTO_INCREMENT",
-          "max_size": 11
+          "type": "VarString",
+          "flags": "NOT_NULL | PRIMARY_KEY | NO_DEFAULT_VALUE",
+          "max_size": 160
         }
       },
       {
@@ -32,7 +32,7 @@
       },
       {
         "ordinal": 3,
-        "name": "desc",
+        "name": "description",
         "type_info": {
           "type": "VarString",
           "flags": "",
@@ -50,5 +50,5 @@
       true
     ]
   },
-  "hash": "1f556fb7ceaa95bde4ce1ee96d1f34cfe833100f9fe5e0c1e55424f6e96f8d40"
+  "hash": "103da8a83ca11806b2d7b9771f17927376630c8a05caff0db9787efd1a7b3dee"
 }
