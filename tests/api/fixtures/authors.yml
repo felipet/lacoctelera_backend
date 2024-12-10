@@ -1,0 +1,31 @@
+# Fixtures for recipe's authors.
+
+- Author1:
+  name: "Valid Author"
+  surname: "Test Dummy"
+  email: "valid_author@mail.com"
+  shareable: True
+  description: "A simple description"
+  website: "https://validauthor.com"
+  social_profiles:
+    - Facebook:
+      provider_name: "Facebook"
+      website: "valid_author"
+    - Twitter:
+      provider_name: "X"
+      website: "valid_author"
+
+- Author2:
+  name: "Private Author"
+  surname: "Test Dummy"
+  email: "private_author@mail.com"
+  shareable: False
+  description: "A simple description"
+  website: "https://validauthor.com"
+  social_profiles:
+    - Facebook:
+      provider_name: "Facebook"
+      website: "private_author"
+    - Twitter:
+      provider_name: "X"
+      website: "private_author"
