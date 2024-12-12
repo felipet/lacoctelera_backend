@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO `Cocktail` (`id`, `name`, `description`, `category`, `image_id`, `url`, `rating`, `owner`, `steps`)\n        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": []
+  },
+  "hash": "e64c2e3cc2def6bdffeab47b2eb16623576a67e05b28a3075c272b300e3d9026"
+}
