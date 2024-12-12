@@ -14,15 +14,15 @@
 //! includes those [Recipe]'s members that the API implement logic for. Furthermore, members are nullable, so only
 //! the aimed member needs to be populated by the client of the API.
 
-use core::fmt;
-use std::str::FromStr;
-
 use crate::{
     domain::{DataDomainError, Tag},
     validate_id,
 };
 use chrono::{DateTime, Local};
+use core::fmt;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
+use tracing::error;
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 use validator::Validate;
@@ -70,7 +70,7 @@ pub struct Recipe {
     update_date: Option<DateTime<Local>>,
     /// Recipe's Author ID.
     #[schema(example = "0191e13b-5ab7-78f1-bc06-be503a6c111b")]
-    author_id: Uuid,
+    author_id: Option<Uuid>,
 }
 
 /// Query object for the `Recipe` entity.
@@ -105,6 +105,34 @@ pub enum StarRate {
     Four = 4,
     #[serde(rename = "5")]
     Five = 5,
+}
+
+impl std::fmt::Display for StarRate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            StarRate::One => "1",
+            StarRate::Two => "2",
+            StarRate::Three => "3",
+            StarRate::Four => "4",
+            StarRate::Five => "5",
+            StarRate::Null => "0",
+        };
+
+        write!(f, "{s}")
+    }
+}
+
+impl Into<u8> for StarRate {
+    fn into(self) -> u8 {
+        match self {
+            StarRate::One => 1,
+            StarRate::Two => 2,
+            StarRate::Three => 3,
+            StarRate::Four => 4,
+            StarRate::Five => 5,
+            _ => 0,
+        }
+    }
 }
 
 /// Categories of recipes.
@@ -163,10 +191,49 @@ pub enum QuantityUnit {
     Cups,
 }
 
+impl fmt::Display for QuantityUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            QuantityUnit::Grams => "g",
+            QuantityUnit::MilliLiter => "ml",
+            QuantityUnit::Dash => "dash",
+            QuantityUnit::Unit => "unit",
+            QuantityUnit::Ounces => "oz",
+            QuantityUnit::Drops => "drop",
+            QuantityUnit::TableSpoon => "tbsp",
+            QuantityUnit::TeaSpoon => "tsp",
+            QuantityUnit::Cups => "cup",
+        };
+
+        write!(f, "{s}")
+    }
+}
+
+impl TryFrom<&str> for QuantityUnit {
+    type Error = DataDomainError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "g" => Ok(QuantityUnit::Grams),
+            "ml" => Ok(QuantityUnit::MilliLiter),
+            "dash" => Ok(QuantityUnit::Dash),
+            "unit" => Ok(QuantityUnit::Unit),
+            "oz" => Ok(QuantityUnit::Ounces),
+            "drop" => Ok(QuantityUnit::Drops),
+            "tbsp" => Ok(QuantityUnit::TableSpoon),
+            "tsp" => Ok(QuantityUnit::TeaSpoon),
+            "cup" => Ok(QuantityUnit::Cups),
+            _ => Err(DataDomainError::InvalidData),
+        }
+    }
+}
+
 impl TryFrom<&str> for RecipeCategory {
     type Error = DataDomainError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value.to_ascii_lowercase().as_str() {
+        let value = String::from(value.to_ascii_lowercase());
+
+        match value.as_str() {
             "easy" => Ok(RecipeCategory::Easy),
             "medium" => Ok(RecipeCategory::Medium),
             "advanced" => Ok(RecipeCategory::Advanced),
@@ -209,7 +276,7 @@ impl Recipe {
     /// invalid values.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        id: &str,
+        id: Option<Uuid>,
         name: &str,
         image_id: Option<&str>,
         author_tags: Option<&[Tag]>,
@@ -219,14 +286,14 @@ impl Recipe {
         url: Option<&str>,
         ingredients: &[RecipeContains],
         steps: &[&str],
-        author_id: &str,
+        author_id: Option<&str>,
     ) -> Result<Self, DataDomainError> {
-        let id = Uuid::from_str(id).map_err(|_| DataDomainError::InvalidId)?;
         let category: RecipeCategory = category.try_into()?;
-        let author_id = Uuid::from_str(author_id).map_err(|_| DataDomainError::InvalidId)?;
+
+        tracing::info!("Author id: {:?}", author_id);
 
         let recipe = Recipe {
-            id: Some(id),
+            id,
             name: name.into(),
             image_id: image_id.map(String::from),
             author_tags: author_tags.map(Vec::from),
@@ -237,16 +304,83 @@ impl Recipe {
             url: url.map(String::from),
             ingredients: Vec::from(ingredients),
             steps: steps.iter().map(|c| String::from(*c)).collect(),
-            author_id,
+            author_id: if let Some(id) = author_id {
+                Some(Uuid::from_str(id).map_err(|_| {
+                    error!("Wrong string given as Author ID: {id}");
+                    DataDomainError::InvalidId
+                })?)
+            } else {
+                None
+            },
             creation_date: Some(Local::now()),
             update_date: None,
         };
 
-        recipe
-            .validate()
-            .map_err(|e| DataDomainError::InvalidParams { source: e })?;
+        recipe.validate().map_err(|e| {
+            error!("{e}");
+            DataDomainError::InvalidFormData
+        })?;
 
         Ok(recipe)
+    }
+
+    pub fn id(&self) -> Option<Uuid> {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn image_id(&self) -> Option<&str> {
+        self.image_id.as_deref()
+    }
+
+    pub fn author_tags(&self) -> Option<&[Tag]> {
+        self.author_tags.as_deref()
+    }
+
+    pub fn tags(&self) -> Option<&[Tag]> {
+        self.tags.as_deref()
+    }
+
+    pub fn category(&self) -> RecipeCategory {
+        self.category.clone()
+    }
+
+    pub fn rating(&self) -> StarRate {
+        match &self.rating {
+            Some(rating) => rating.clone(),
+            None => StarRate::Null,
+        }
+    }
+
+    pub fn description(&self) -> Option<&str> {
+        self.description.as_deref()
+    }
+
+    pub fn url(&self) -> Option<&str> {
+        self.url.as_deref()
+    }
+
+    pub fn ingredients(&self) -> &[RecipeContains] {
+        &self.ingredients
+    }
+
+    pub fn steps(&self) -> &[String] {
+        &self.steps
+    }
+
+    pub fn creation_date(&self) -> Option<DateTime<Local>> {
+        self.creation_date
+    }
+
+    pub fn update_date(&self) -> Option<DateTime<Local>> {
+        self.update_date
+    }
+
+    pub fn owner(&self) -> Option<Uuid> {
+        self.author_id
     }
 }
 
@@ -278,21 +412,6 @@ impl std::fmt::Display for RecipeQuery {
     }
 }
 
-impl std::fmt::Display for StarRate {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let ss = match self {
-            StarRate::Null => "0 Stars",
-            StarRate::One => "1 Star",
-            StarRate::Two => "2 Stars",
-            StarRate::Three => "3 Stars",
-            StarRate::Four => "4 Stars",
-            StarRate::Five => "5 Stars",
-        };
-
-        write!(f, "{ss}")
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -301,7 +420,7 @@ mod tests {
     use uuid::Uuid;
 
     struct TemplateRecipe<'a> {
-        pub id: String,
+        pub id: Uuid,
         pub name: String,
         pub image_id: Option<String>,
         pub author_tags: Option<Vec<Tag>>,
@@ -317,7 +436,7 @@ mod tests {
     #[fixture]
     fn template_recipe<'a>() -> TemplateRecipe<'a> {
         TemplateRecipe {
-            id: Uuid::now_v7().to_string(),
+            id: Uuid::now_v7(),
             name: "Demo recipe".into(),
             image_id: None,
             author_tags: Some(Vec::from([
@@ -351,7 +470,7 @@ mod tests {
     #[rstest]
     fn check_recipe_builds_using_valid_data(template_recipe: TemplateRecipe) {
         let recipe = Recipe::new(
-            &template_recipe.id,
+            Some(template_recipe.id),
             &template_recipe.name,
             template_recipe.image_id.as_deref(),
             template_recipe.author_tags.as_deref(),
@@ -361,14 +480,14 @@ mod tests {
             template_recipe.url.as_deref(),
             &template_recipe.ingredients,
             template_recipe.steps,
-            &template_recipe.author_id.to_string(),
+            Some(&template_recipe.author_id.to_string()),
         );
 
         assert!(recipe.is_ok());
 
         let recipe = recipe.unwrap();
 
-        assert_eq!(recipe.id.unwrap().to_string(), template_recipe.id);
+        assert_eq!(recipe.id.unwrap(), template_recipe.id);
         assert_eq!(recipe.name, template_recipe.name);
         assert_eq!(
             recipe.image_id.as_deref(),
@@ -389,31 +508,17 @@ mod tests {
         assert_eq!(recipe.ingredients, template_recipe.ingredients);
         assert_eq!(recipe.steps, template_recipe.steps);
         assert_eq!(recipe.update_date, None);
-        assert_eq!(recipe.author_id.to_string(), template_recipe.author_id);
+        assert_eq!(
+            recipe.author_id.unwrap().to_string(),
+            template_recipe.author_id
+        );
     }
 
     #[rstest]
     fn check_recipe_not_builds_using_invalid_data(template_recipe: TemplateRecipe) {
-        // Invalid ID test case
-        let recipe = Recipe::new(
-            "9113-239aab-39393b",
-            &template_recipe.name,
-            template_recipe.image_id.as_deref(),
-            template_recipe.author_tags.as_deref(),
-            template_recipe.tags.as_deref(),
-            &template_recipe.category,
-            template_recipe.description.as_deref(),
-            template_recipe.url.as_deref(),
-            &template_recipe.ingredients,
-            template_recipe.steps,
-            &template_recipe.author_id.to_string(),
-        );
-
-        assert!(recipe.is_err());
-
         // Invalid name test case
         let recipe = Recipe::new(
-            &template_recipe.id,
+            Some(template_recipe.id),
             "Very long name that should produce an error",
             template_recipe.image_id.as_deref(),
             template_recipe.author_tags.as_deref(),
@@ -423,14 +528,14 @@ mod tests {
             template_recipe.url.as_deref(),
             &template_recipe.ingredients,
             template_recipe.steps,
-            &template_recipe.author_id.to_string(),
+            Some(&template_recipe.author_id.to_string()),
         );
 
         assert!(recipe.is_err());
 
         // Invalid description test case
         let recipe = Recipe::new(
-            &template_recipe.id,
+            Some(template_recipe.id),
             &template_recipe.name,
             template_recipe.image_id.as_deref(),
             template_recipe.author_tags.as_deref(),
@@ -440,10 +545,57 @@ mod tests {
             template_recipe.url.as_deref(),
             &template_recipe.ingredients,
             template_recipe.steps,
-            &template_recipe.author_id.to_string(),
+            Some(&template_recipe.author_id.to_string()),
         );
 
         assert!(recipe.is_err());
+    }
+
+    #[rstest]
+    fn check_recipe_getters(template_recipe: TemplateRecipe) {
+        let recipe = Recipe::new(
+            Some(template_recipe.id),
+            &template_recipe.name,
+            template_recipe.image_id.as_deref(),
+            template_recipe.author_tags.as_deref(),
+            template_recipe.tags.as_deref(),
+            &template_recipe.category,
+            template_recipe.description.as_deref(),
+            template_recipe.url.as_deref(),
+            &template_recipe.ingredients,
+            template_recipe.steps,
+            Some(&template_recipe.author_id.to_string()),
+        );
+
+        assert!(recipe.is_ok());
+
+        let recipe = recipe.unwrap();
+
+        assert_eq!(recipe.id().unwrap(), template_recipe.id);
+        assert_eq!(recipe.name(), template_recipe.name);
+        assert_eq!(
+            recipe.image_id().as_deref(),
+            template_recipe.image_id.as_deref()
+        );
+        assert_eq!(recipe.author_tags(), template_recipe.author_tags.as_deref());
+        assert_eq!(recipe.tags(), template_recipe.tags.as_deref());
+        assert_eq!(
+            recipe.category().to_string(),
+            template_recipe.category.to_string()
+        );
+        assert_eq!(recipe.rating(), StarRate::Null);
+        assert_eq!(
+            recipe.description().as_deref(),
+            template_recipe.description.as_deref()
+        );
+        assert_eq!(recipe.url(), template_recipe.url.as_deref());
+        assert_eq!(recipe.ingredients(), template_recipe.ingredients);
+        assert_eq!(recipe.steps(), template_recipe.steps);
+        assert_eq!(recipe.update_date(), None);
+        assert_eq!(
+            recipe.owner().unwrap().to_string(),
+            template_recipe.author_id
+        );
     }
 
     #[rstest]
@@ -480,12 +632,12 @@ mod tests {
     }
 
     #[rstest]
-    #[case(StarRate::Null, "0 Stars")]
-    #[case(StarRate::One, "1 Star")]
-    #[case(StarRate::Two, "2 Stars")]
-    #[case(StarRate::Three, "3 Stars")]
-    #[case(StarRate::Four, "4 Stars")]
-    #[case(StarRate::Five, "5 Stars")]
+    #[case(StarRate::Null, "0")]
+    #[case(StarRate::One, "1")]
+    #[case(StarRate::Two, "2")]
+    #[case(StarRate::Three, "3")]
+    #[case(StarRate::Four, "4")]
+    #[case(StarRate::Five, "5")]
     fn rating_converts_to_string(#[case] rating: StarRate, #[case] value: &str) {
         let category: String = format!("{rating}");
         assert_eq!(&category, value);

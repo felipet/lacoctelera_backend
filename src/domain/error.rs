@@ -38,6 +38,8 @@ pub enum DataDomainError {
     InvalidEmail,
     #[error("Account disabled")]
     AccountDisabled,
+    #[error("Parsing error")]
+    InvalidData,
 }
 
 #[derive(Error, Debug)]
