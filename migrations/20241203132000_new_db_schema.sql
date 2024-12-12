@@ -33,8 +33,8 @@ CREATE TABLE `Author` (
 
 DROP TABLE IF EXISTS `Tag`;
 CREATE TABLE `Tag` (
-    `name` varchar(40),
-    CONSTRAINT `Tag_PK` PRIMARY KEY (`name`)
+    `identifier` varchar(40),
+    CONSTRAINT `Tag_PK` PRIMARY KEY (`identifier`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
 -- Cocktail Entity
@@ -74,9 +74,9 @@ CREATE TABLE `Tagged` (
     `id` VARCHAR(40) PRIMARY KEY,
     `cocktail_id` VARCHAR(40) NOT NULL,
     `type` ENUM ('author', 'backend') NOT NULL DEFAULT 'backend',
-    `tag` varchar(40),
+    `tag` varchar(40) NOT NULL,
     CONSTRAINT `Cocktail_ID_FK` FOREIGN KEY (`cocktail_id`) REFERENCES `Cocktail`(`id`),
-    CONSTRAINT `Tag_ID_FK` FOREIGN KEY (`tag`) REFERENCES `Tag`(`name`)
+    CONSTRAINT `Tag_ID_FK` FOREIGN KEY (`tag`) REFERENCES `Tag`(`identifier`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
 -- Relation between social profiles and authors.

@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO `Tagged` (`id`, `cocktail_id`, `type`, `tag`) VALUES (?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "d1f1943da7866b9c84f8b007aeef920b9fa95b5d94e59bca92a3f0e015c873b7"
+}

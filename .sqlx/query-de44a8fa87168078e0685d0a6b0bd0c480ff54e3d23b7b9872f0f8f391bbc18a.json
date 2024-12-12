@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO `UsedIngredient` (`cocktail_id`, `ingredient_id`, `amount`) VALUES (?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "de44a8fa87168078e0685d0a6b0bd0c480ff54e3d23b7b9872f0f8f391bbc18a"
+}
