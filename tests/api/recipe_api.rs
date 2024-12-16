@@ -16,7 +16,7 @@ use pretty_assertions::assert_eq;
 use reqwest::Response;
 use serde::Deserialize;
 use sqlx::MySqlPool;
-use tracing::info;
+use tracing::{debug, info};
 use uuid::Uuid;
 
 pub struct RecipeApiTester {
@@ -24,7 +24,6 @@ pub struct RecipeApiTester {
     credentials: Credentials,
     test_app: TestApp,
 }
-
 #[derive(Default)]
 pub struct RecipeApiBuilder {
     credentials: Option<Credentials>,
@@ -115,7 +114,7 @@ impl TestObject for RecipeApiTester {
 async fn post_no_credentials() -> Result<(), String> {
     info!("Test Case::resource::/recipe (POST) -> Add a new valid recipe entry");
     let mut test_builder = RecipeApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     let seed = true;
@@ -173,7 +172,7 @@ async fn post_no_credentials() -> Result<(), String> {
 async fn post_with_credentials() -> Result<(), String> {
     info!("Test Case::resource::/recipe (POST) -> Add a new valid recipe entry");
     let mut test_builder = RecipeApiBuilder::default();
-    TestBuilder::author_api_with_credentials(&mut test_builder);
+    TestBuilder::api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     let seed = true;
@@ -350,4 +349,95 @@ fn stepize<'a>(steps: &'a str) -> Vec<&'a str> {
     }
 
     step_list
+}
+
+#[actix_web::test]
+async fn get_no_credentials() -> Result<(), String> {
+    info!("Test Case::resource::/recipe (GET) -> Get a new valid recipe entry");
+    let mut test_builder = RecipeApiBuilder::default();
+    TestBuilder::api_no_credentials(&mut test_builder);
+    let test = test_builder.build().await;
+
+    let seed = true;
+    let fixture = fixtures::FixtureSeeder::new(test.db_pool())
+        .with_recipes(seed)
+        .seed()
+        .await?;
+
+    let recipe_fixture = fixture
+        .recipe
+        .expect("Failed to extract the recipe fixture")
+        .valid_fixtures;
+    let a_recipe = &recipe_fixture[0];
+
+    let query = format!(
+        "/{}",
+        a_recipe
+            .id()
+            .expect("Failed to extract recipe's ID")
+            .to_string()
+    );
+    let response = test.get(&query).await;
+    debug!("Received payload:\n{:?}", response);
+    assert_eq!(response.status().as_u16(), StatusCode::OK);
+    let received_recipe = serde_json::from_str::<Recipe>(
+        &response
+            .text()
+            .await
+            .expect("Failed to parse reponse's payload"),
+    )
+    .expect("Failed to deserialize the received recipe");
+    debug!("Test recipe:\n{:?}", a_recipe);
+    debug!("Received recipe:\n{:?}", received_recipe);
+
+    assert_eq!(a_recipe.id(), received_recipe.id());
+    assert_eq!(a_recipe.name(), received_recipe.name());
+    assert_eq!(a_recipe.category(), received_recipe.category());
+    assert_eq!(a_recipe.description(), received_recipe.description());
+    assert_eq!(a_recipe.image_id(), received_recipe.image_id());
+    assert_eq!(a_recipe.rating(), received_recipe.rating());
+    assert_eq!(a_recipe.owner(), received_recipe.owner());
+    assert_eq!(a_recipe.steps(), received_recipe.steps());
+    assert_eq!(a_recipe.url(), received_recipe.url());
+    // The fractional part sometimes is not equal.
+    assert_eq!(
+        a_recipe
+            .creation_date()
+            .unwrap()
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string(),
+        received_recipe
+            .creation_date()
+            .unwrap()
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string()
+    );
+    if a_recipe.update_date().is_some() {
+        assert_eq!(
+            a_recipe
+                .update_date()
+                .unwrap()
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string(),
+            received_recipe
+                .update_date()
+                .unwrap()
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
+        );
+    }
+
+    for ingredient in a_recipe.ingredients() {
+        assert!(received_recipe.ingredients().contains(ingredient));
+    }
+
+    for tag in a_recipe.author_tags().unwrap().iter() {
+        assert!(received_recipe.author_tags().unwrap().contains(tag));
+    }
+
+    for tag in a_recipe.tags().unwrap().iter() {
+        assert!(received_recipe.tags().unwrap().contains(tag));
+    }
+
+    Ok(())
 }

@@ -150,7 +150,7 @@ async fn seed_ingredients(pool: &MySqlPool) -> FixtureResult {
 async fn search_no_credentials() -> Result<(), String> {
     info!("Test Case::resource::/ingredient (GET) -> Search a non existing ingredient");
     let mut test_builder = IngredientApiBuilder::default();
-    TestBuilder::ingredient_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     let name = "Vodka";
@@ -192,7 +192,7 @@ async fn search_no_credentials() -> Result<(), String> {
 async fn search_with_credentials() -> Result<(), String> {
     info!("Test Case::resource::/ingredient (GET) -> Search a non existing ingredient");
     let mut test_builder = IngredientApiBuilder::default();
-    TestBuilder::ingredient_api_with_credentials(&mut test_builder);
+    TestBuilder::api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     let name = "Vodka";
@@ -207,7 +207,7 @@ async fn search_with_credentials() -> Result<(), String> {
 async fn post_no_credentials() -> Result<(), String> {
     info!("Test Case::resource::/ingredient (POST) -> Add an ingredient using a valid JSON");
     let mut test_builder = IngredientApiBuilder::default();
-    TestBuilder::ingredient_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     let test_payload = [
