@@ -1,0 +1,10 @@
+# Fixtures for recipes.
+
+- Recipe1:
+  name: "Test Recipe"
+  author_tags: ["simple"]
+  tags: ["test"]
+  description: "A simple test cocktail."
+  category: "easy"
+  rating: "0"
+  steps: ["Pour everything into a mixer and shake.", "Serve in a chilled glass."]

@@ -40,4 +40,3 @@ reqwest = { version = "0.12.5", default-features = false, features = ["rustls-tl
 rstest = { version = "0.23.0", default-features = false}
 pretty_assertions = "1.4.0"
 serde_yml = "0.0.12"
-adv_random = "2.0.3"

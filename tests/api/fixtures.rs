@@ -4,14 +4,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use adv_random;
 use lacoctelera::{
-    domain::{Author, AuthorBuilder, QuantityUnit, Recipe, RecipeContains, SocialProfile},
+    domain::{
+        Author, AuthorBuilder, QuantityUnit, Recipe, RecipeCategory, RecipeContains, SocialProfile,
+        StarRate, Tag,
+    },
     Ingredient,
 };
+use serde::Deserialize;
 use sqlx::{Executor, MySqlPool};
-use std::fs;
-use tracing::error;
+use std::{fs, iter::zip};
+use tracing::{debug, error};
 use uuid::Uuid;
 
 pub struct FixtureSeeder<'a> {
@@ -215,10 +218,6 @@ impl SocialProfileFixture {
 
         Ok(())
     }
-
-    pub fn valid_fixtures(&self) -> &[SocialProfile] {
-        &self.valid_fixtures
-    }
 }
 
 #[derive(Debug, Default)]
@@ -253,22 +252,32 @@ impl IngredientFixture {
 
         Ok(())
     }
-
-    pub fn valid_fixtures(&self) -> &[Ingredient] {
-        &self.valid_fixtures
-    }
 }
 
 #[derive(Debug, Default)]
 pub struct RecipeFixture {
     pub valid_fixtures: Vec<Recipe>,
+    simple_recipe: Vec<SimpleRecipe>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SimpleRecipe {
+    pub name: String,
+    pub description: String,
+    pub author_tags: Vec<String>,
+    pub tags: Vec<String>,
+    pub image_id: Option<String>,
+    pub url: Option<String>,
+    pub category: RecipeCategory,
+    pub rating: StarRate,
+    pub steps: Vec<String>,
 }
 
 impl RecipeFixture {
     pub fn load(&mut self) -> Result<(), String> {
         let file =
             fs::read_to_string("tests/api/fixtures/recipes.yml").map_err(|e| e.to_string())?;
-        self.valid_fixtures = serde_yml::from_str(&file).map_err(|e| e.to_string())?;
+        self.simple_recipe = serde_yml::from_str(&file).map_err(|e| e.to_string())?;
 
         Ok(())
     }
@@ -287,45 +296,128 @@ impl RecipeFixture {
 
         let authors = author_fixture.valid_fixtures;
 
-        // The author and the ingredients will be selected randomly.
-        let random_result =
-            adv_random::random::random_numbers(&adv_random::settings::Settings::new(
-                &[Box::new(adv_random::rules::NumberRange::all(
-                    0,
-                    ingredients.len() - 1,
-                ))],
-                3,
-            ));
-        let random_ingredients = match random_result.numbers() {
-            Ok(numbers) => numbers,
-            _ => return Err("Failed to generate random numbers".to_owned()),
-        };
-
         // Now, let's indicate what ingredients will be used in the recipe.
         let included_ingredients = &[
             RecipeContains {
                 quantity: 1.0,
                 unit: QuantityUnit::Ounces,
-                ingredient_id: ingredients[random_ingredients[0]].id().unwrap(),
+                ingredient_id: ingredients[0].id().unwrap(),
             },
             RecipeContains {
                 quantity: 30.0,
                 unit: QuantityUnit::MilliLiter,
-                ingredient_id: ingredients[random_ingredients[1]].id().unwrap(),
+                ingredient_id: ingredients[1].id().unwrap(),
             },
         ];
 
+        debug!("Used ingredients: {:?}", included_ingredients);
+
+        let recipe_id = Uuid::now_v7();
+
+        let template_recipe = &self.simple_recipe[0];
+
+        let mut transaction = pool.begin().await.expect("Failed to acquire DB");
+
+        transaction.execute(sqlx::query!(
+            r#"INSERT INTO `Cocktail`(`id`,`name`,`description`,`category`,`steps`,`image_id`,`url`,`rating`,`owner`)
+            VALUES (?,?,?,?,?,?,?,?,?)"#,
+            recipe_id.to_string(),
+            template_recipe.name,
+            template_recipe.description,
+            template_recipe.category.to_string(),
+            template_recipe.steps.join("/n"),
+            template_recipe.image_id,
+            template_recipe.url,
+            template_recipe.rating.to_string(),
+            authors[0].id().expect("Failed to extract author's ID"),
+        ))
+        .await
+        .map_err(|e| e.to_string())?;
+
+        for ingredient in included_ingredients {
+            transaction
+                .execute(sqlx::query!(
+                    r#"INSERT INTO `UsedIngredient`(`cocktail_id`, `ingredient_id`, `amount`)
+                    VALUES (?,?,?)"#,
+                    recipe_id.to_string(),
+                    ingredient.ingredient_id.to_string(),
+                    &format!("{} {}", ingredient.quantity, ingredient.unit),
+                ))
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+
+        for tag in zip(
+            template_recipe.tags.iter(),
+            template_recipe.author_tags.iter(),
+        ) {
+            transaction
+                .execute(sqlx::query!(
+                    "INSERT IGNORE INTO `Tag` VALUES (?), (?)",
+                    tag.0,
+                    tag.1,
+                ))
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+
+        for tag in template_recipe.tags.iter() {
+            transaction
+                .execute(sqlx::query!(
+                    r#"INSERT INTO `Tagged`(`id`, `cocktail_id`, `type`, `tag`)
+                VALUES (?,?,?,?)"#,
+                    Uuid::now_v7().to_string(),
+                    recipe_id.to_string(),
+                    "backend",
+                    tag,
+                ))
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+
+        for tag in template_recipe.author_tags.iter() {
+            transaction
+                .execute(sqlx::query!(
+                    r#"INSERT INTO `Tagged`(`id`, `cocktail_id`, `type`, `tag`)
+                VALUES (?,?,?,?)"#,
+                    Uuid::now_v7().to_string(),
+                    recipe_id.to_string(),
+                    "author",
+                    tag,
+                ))
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+
+        transaction.commit().await.expect("Failed to commit to DB");
+
+        let mut author_tags = Vec::new();
+        let mut tags = Vec::new();
+
+        for tag in template_recipe.author_tags.iter() {
+            author_tags.push(Tag::new(tag).expect("Wrong string used as tag"));
+        }
+
+        for tag in template_recipe.tags.iter() {
+            tags.push(Tag::new(tag).expect("Wrong string used as tag"));
+        }
+
         let recipe = Recipe::new(
-            None,
-            "Dummy Recipe",
-            None,
-            None,
-            None,
-            "easy",
-            None,
-            None,
+            Some(recipe_id),
+            &template_recipe.name,
+            template_recipe.image_id.as_deref(),
+            Some(&author_tags),
+            Some(&tags),
+            &template_recipe.category.to_string(),
+            Some(&template_recipe.description),
+            template_recipe.url.as_deref(),
             included_ingredients,
-            &["Pour everything into a cup and enjoy."],
+            template_recipe
+                .steps
+                .iter()
+                .map(AsRef::as_ref)
+                .collect::<Vec<&str>>()
+                .as_slice(),
             authors[0].id().as_deref(),
         )
         .map_err(|e| e.to_string())?;

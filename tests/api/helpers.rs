@@ -126,19 +126,11 @@ pub trait ApiTesterBuilder {
 pub struct TestBuilder;
 
 impl TestBuilder {
-    pub fn author_api_with_credentials(builder: &mut impl ApiTesterBuilder) {
+    pub fn api_with_credentials(builder: &mut impl ApiTesterBuilder) {
         builder.with_credentials();
     }
 
-    pub fn author_api_no_credentials(builder: &mut impl ApiTesterBuilder) {
-        builder.without_credentials();
-    }
-
-    pub fn ingredient_api_with_credentials(builder: &mut impl ApiTesterBuilder) {
-        builder.with_credentials();
-    }
-
-    pub fn ingredient_api_no_credentials(builder: &mut impl ApiTesterBuilder) {
+    pub fn api_no_credentials(builder: &mut impl ApiTesterBuilder) {
         builder.without_credentials();
     }
 }

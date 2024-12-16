@@ -114,7 +114,7 @@ impl TestObject for AuthorApiTester {
 #[actix_web::test]
 async fn delete_no_credentials() -> Result<(), String> {
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     info!("Test Case::resource::/author (DELETE) -> Attempt to delete a non existing author");
@@ -152,7 +152,7 @@ async fn delete_no_credentials() -> Result<(), String> {
 #[actix_web::test]
 async fn delete_with_credentials() -> Result<(), String> {
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_with_credentials(&mut test_builder);
+    TestBuilder::api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     info!("Test Case::resource::/author (DELETE) -> Attempt to delete using a wrong author ID");
@@ -201,7 +201,7 @@ async fn get_no_credentials() -> Result<(), String> {
     let author_id = Uuid::now_v7().to_string();
     let query = format!("/{author_id}");
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
     assert_eq!(
         test.get(&query).await.status().as_u16(),
@@ -286,7 +286,7 @@ async fn get_with_credentials() -> Result<(), String> {
     let author_id = Uuid::now_v7().to_string();
     let query = format!("/{author_id}");
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_with_credentials(&mut test_builder);
+    TestBuilder::api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
     assert_eq!(
         test.get(&query).await.status().as_u16(),
@@ -383,7 +383,7 @@ async fn head() -> Result<(), String> {
     info!("Test Case::resource::/author (HEAD) -> Attempt to request a non existing client");
     let id = Uuid::now_v7().to_string();
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     assert_eq!(
@@ -420,7 +420,7 @@ async fn head() -> Result<(), String> {
 async fn options() -> Result<(), String> {
     info!("Test Case::resource::/author (OPTIONS) -> Preflight check");
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
     let response = test.options().await;
 
@@ -448,7 +448,7 @@ async fn options() -> Result<(), String> {
 async fn post_no_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (POST) -> Add a new valid author entry");
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     let with_social_media = false;
@@ -468,7 +468,7 @@ async fn post_no_credentials() -> Result<(), String> {
 #[actix_web::test]
 async fn post_with_credentials() -> Result<(), String> {
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_with_credentials(&mut test_builder);
+    TestBuilder::api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     info!("Test Case::resource::/author (POST) -> Add a new valid author entry");
@@ -580,7 +580,7 @@ async fn post_with_credentials() -> Result<(), String> {
 async fn patch_no_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (PATCH) -> Modify an existing author entry");
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     let mut author_fixture = AuthorFixture::default();
@@ -607,7 +607,7 @@ async fn patch_no_credentials() -> Result<(), String> {
 async fn patch_with_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (PATCH) -> Modify an existing author entry");
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_with_credentials(&mut test_builder);
+    TestBuilder::api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     let mut social_profile_fixture = fixtures::SocialProfileFixture::default();
@@ -694,7 +694,7 @@ async fn patch_with_credentials() -> Result<(), String> {
 #[actix_web::test]
 async fn search_no_credentials() -> Result<(), String> {
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     info!("Test Case::resource::/author (GET) -> Search a nonexisting author");
@@ -768,7 +768,7 @@ async fn search_no_credentials() -> Result<(), String> {
 #[actix_web::test]
 async fn search_with_credentials() -> Result<(), String> {
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_with_credentials(&mut test_builder);
+    TestBuilder::api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     info!("Test Case::resource::/author (GET) -> Search a nonexisting author");

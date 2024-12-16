@@ -4,10 +4,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::domain::{DataDomainError, Recipe, ServerError, Tag};
+use crate::domain::{DataDomainError, QuantityUnit, Recipe, RecipeContains, ServerError, Tag};
 use sqlx::{Executor, MySqlPool};
 use std::error::Error;
-use tracing::{error, instrument};
+use tracing::{debug, error, instrument};
 use uuid::Uuid;
 
 #[instrument(skip(pool))]
@@ -131,4 +131,134 @@ pub async fn register_new_recipe(
     })?;
 
     Ok(new_id)
+}
+
+#[instrument(skip(pool))]
+pub async fn get_recipe_from_db(pool: &MySqlPool, id: &Uuid) -> Result<Recipe, Box<dyn Error>> {
+    let row = sqlx::query!("SELECT * FROM `Cocktail` WHERE id=?", id.to_string(),)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| {
+            error!("{e}");
+            ServerError::DbError
+        })?;
+
+    if row.is_none() {
+        return Err(Box::new(DataDomainError::InvalidId));
+    }
+
+    let record = row.unwrap();
+
+    let (author_tags, tags) = get_tags_for_recipe(pool, id.to_string().as_ref()).await?;
+    let ingredients = get_ingredients_for_recipe(pool, id.to_string().as_ref()).await?;
+
+    let recipe = Recipe::new(
+        Some(Uuid::parse_str(&record.id).map_err(|e| {
+            error!("{e}");
+            ServerError::DbError
+        })?),
+        &record.name,
+        record.image_id.as_deref(),
+        Some(&author_tags),
+        Some(&tags),
+        match record.category.as_deref() {
+            Some(category) => category,
+            None => {
+                error!("The recipe has no associated category");
+                return Err(Box::new(ServerError::DbError));
+            }
+        },
+        record.description.as_deref(),
+        record.url.as_deref(),
+        &ingredients,
+        &stepize(&record.steps),
+        record.owner.as_deref(),
+    )?;
+
+    Ok(recipe)
+}
+
+#[instrument(skip(pool))]
+async fn get_tags_for_recipe(
+    pool: &MySqlPool,
+    id: &str,
+) -> Result<(Vec<Tag>, Vec<Tag>), Box<dyn Error>> {
+    let records = sqlx::query!(
+        "SELECT t.identifier, tg.type from `Tagged` as tg natural join `Tag` as t WHERE tg.cocktail_id = ?",
+        id,
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        error!("{e}");
+        ServerError::DbError
+    })?;
+
+    let mut tags = Vec::new();
+    let mut author_tags = Vec::new();
+
+    for element in records {
+        if element.r#type == "author" {
+            author_tags.push(Tag {
+                identifier: element.identifier,
+            });
+        } else {
+            tags.push(Tag {
+                identifier: element.identifier,
+            });
+        }
+    }
+
+    Ok((author_tags, tags))
+}
+
+#[instrument(skip(pool))]
+async fn get_ingredients_for_recipe(
+    pool: &MySqlPool,
+    id: &str,
+) -> Result<Vec<RecipeContains>, Box<dyn Error>> {
+    let records = sqlx::query!(
+        "SELECT `ingredient_id`, `amount` FROM `UsedIngredient` WHERE `cocktail_id`=?",
+        id,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    debug!("Found ingredients: {:?}", records);
+
+    let mut ingredients = Vec::new();
+
+    for row in records {
+        let split: Vec<&str> = row.amount.split(" ").collect();
+        let quantity = split[0].parse::<f32>().map_err(|e| {
+            error!("{e}");
+            ServerError::DbError
+        })?;
+
+        let unit: QuantityUnit = split[1].try_into().map_err(|e| {
+            error!("{e}");
+            ServerError::DbError
+        })?;
+
+        ingredients.push(RecipeContains {
+            quantity,
+            unit,
+            ingredient_id: Uuid::parse_str(&row.ingredient_id).map_err(|e| {
+                error!("{e}");
+                ServerError::DbError
+            })?,
+        });
+    }
+
+    Ok(ingredients)
+}
+
+fn stepize<'a>(steps: &'a str) -> Vec<&'a str> {
+    let mut step_list = Vec::new();
+
+    for line in steps.split("/n") {
+        step_list.push(line);
+    }
+
+    step_list
 }

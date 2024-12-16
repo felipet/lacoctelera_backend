@@ -1,0 +1,9 @@
+# Fixtures for ingredients.
+
+- Ingredient1:
+  name: "Vodka"
+  category: "Spirit"
+- Ingredient2:
+  name: "Lime juice"
+  category: "Other"
+  description: "fresh lime juice"
