@@ -301,7 +301,7 @@ async fn get_tags_for_recipe(
     id: &str,
 ) -> Result<(Vec<Tag>, Vec<Tag>), Box<dyn Error>> {
     let records = sqlx::query!(
-        "SELECT t.identifier, tg.type from `Tagged` as tg natural join `Tag` as t WHERE tg.cocktail_id = ?",
+        "SELECT `tag`, `type` from `Tagged` WHERE `cocktail_id` = ?",
         id,
     )
     .fetch_all(pool)
@@ -317,11 +317,11 @@ async fn get_tags_for_recipe(
     for element in records {
         if element.r#type == "author" {
             author_tags.push(Tag {
-                identifier: element.identifier,
+                identifier: element.tag,
             });
         } else {
             tags.push(Tag {
-                identifier: element.identifier,
+                identifier: element.tag,
             });
         }
     }
