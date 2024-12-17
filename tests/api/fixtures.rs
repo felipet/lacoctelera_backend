@@ -42,6 +42,7 @@ impl<'a> FixtureSeeder<'a> {
         self
     }
 
+    #[allow(dead_code)]
     pub fn with_social_profiles(mut self, seed: bool) -> FixtureSeeder<'a> {
         self.seed_social_profiles = Some(seed);
 
