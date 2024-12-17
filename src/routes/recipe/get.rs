@@ -7,15 +7,16 @@
 //! Example
 
 use crate::{
-    domain::{
-        DataDomainError, QuantityUnit, Recipe, RecipeCategory, RecipeContains, RecipeQuery, Tag,
+    domain::{DataDomainError, RecipeQuery},
+    routes::recipe::{
+        get_recipe_from_db, search_recipe_by_category, search_recipe_by_name,
+        search_recipe_by_rating,
     },
-    routes::recipe::utils::get_recipe_from_db,
 };
 use actix_web::{
     get,
     web::{Data, Path, Query},
-    HttpResponse, Responder,
+    HttpResponse,
 };
 use sqlx::MySqlPool;
 use std::convert::TryFrom;
@@ -73,44 +74,47 @@ use uuid::Uuid;
     )
 )]
 #[get("")]
-pub async fn search_recipe(req: Query<RecipeQuery>) -> impl Responder {
+pub async fn search_recipe(
+    req: Query<RecipeQuery>,
+    pool: Data<MySqlPool>,
+) -> Result<HttpResponse, Box<dyn Error>> {
     let search_type: SearchType = (&req.0).try_into().expect("Wrong query");
 
     info!("Recipe search ({search_type}) using: {{{}}}", req.0);
 
-    let template_recipe = Recipe::new(
-        Some(Uuid::now_v7()),
-        "Demo recipe",
-        None,
-        Some(&Vec::from([
-            Tag::new("alcoholic").unwrap(),
-            Tag::new("rum-based").unwrap(),
-        ])),
-        Some(&Vec::from([
-            Tag::new("alcoholic").unwrap(),
-            Tag::new("rum-based").unwrap(),
-        ])),
-        &RecipeCategory::Easy.to_string(),
-        Some("A delicious cocktail for summer."),
-        None,
-        &Vec::from([
-            RecipeContains {
-                quantity: 100.0,
-                unit: QuantityUnit::Grams,
-                ingredient_id: Uuid::now_v7(),
-            },
-            RecipeContains {
-                quantity: 20.0,
-                unit: QuantityUnit::MilliLiter,
-                ingredient_id: Uuid::now_v7(),
-            },
-        ]),
-        &["Pour all the ingredients in a shaker", "Shake and serve"],
-        Some(&Uuid::now_v7().to_string()),
-    )
-    .unwrap();
+    let recipe_ids = match search_type {
+        SearchType::ByName => {
+            let search_token = match req.0.name {
+                Some(name) => name,
+                None => return Err(Box::new(DataDomainError::InvalidSearch)),
+            };
+            search_recipe_by_name(&pool, &search_token).await?
+        }
+        SearchType::ByCategory => {
+            let search_token = match req.0.category {
+                Some(category) => category,
+                None => return Err(Box::new(DataDomainError::InvalidSearch)),
+            };
+            search_recipe_by_category(&pool, search_token).await?
+        }
+        SearchType::ByRating => {
+            let search_token = match req.0.rating {
+                Some(rating) => rating,
+                None => return Err(Box::new(DataDomainError::InvalidSearch)),
+            };
+            search_recipe_by_rating(&pool, search_token).await?
+        }
+        SearchType::ByTags => return Ok(HttpResponse::NotImplemented().finish()),
+        SearchType::Intersection => return Ok(HttpResponse::NotImplemented().finish()),
+    };
 
-    HttpResponse::NotImplemented().json(template_recipe)
+    let mut recipes = Vec::new();
+
+    for id in recipe_ids.iter() {
+        recipes.push(get_recipe_from_db(&pool, id).await?)
+    }
+
+    Ok(HttpResponse::Ok().json(recipes))
 }
 
 /// Retrieve a recipe from the DB using its unique ID.

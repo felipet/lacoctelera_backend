@@ -4,10 +4,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::domain::{DataDomainError, QuantityUnit, Recipe, RecipeContains, ServerError, Tag};
+use crate::domain::{
+    DataDomainError, QuantityUnit, Recipe, RecipeCategory, RecipeContains, ServerError, StarRate,
+    Tag,
+};
 use sqlx::{Executor, MySqlPool};
 use std::error::Error;
-use tracing::{debug, error, instrument};
+use tracing::{debug, error, info, instrument};
 use uuid::Uuid;
 
 #[instrument(skip(pool))]
@@ -179,6 +182,120 @@ pub async fn get_recipe_from_db(pool: &MySqlPool, id: &Uuid) -> Result<Recipe, B
 }
 
 #[instrument(skip(pool))]
+pub async fn search_recipe_by_name(
+    pool: &MySqlPool,
+    name: &str,
+) -> Result<Vec<Uuid>, Box<dyn Error>> {
+    let recipes = sqlx::query!(
+        r#"SELECT `id` FROM `Cocktail` WHERE name like ?"#,
+        &format!("%{name}%"),
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        error!("{e}");
+        ServerError::DbError
+    });
+
+    let mut found_recipes = Vec::new();
+
+    if let Ok(ids) = recipes {
+        for id in ids.iter() {
+            found_recipes.push(Uuid::parse_str(&id.id).map_err(|_| {
+                error!("Failed to parse ID from a value of the DB");
+                ServerError::DbError
+            })?);
+        }
+
+        info!(
+            "{} recipes found using the name: {name}",
+            found_recipes.len()
+        );
+        debug!("{:?}", found_recipes);
+    } else {
+        info!("No recipes found using the name: {name}");
+    }
+
+    Ok(found_recipes)
+}
+
+#[instrument(skip(pool))]
+pub async fn search_recipe_by_category(
+    pool: &MySqlPool,
+    category: RecipeCategory,
+) -> Result<Vec<Uuid>, Box<dyn Error>> {
+    let recipes = sqlx::query!(
+        r#"SELECT `id` FROM `Cocktail` WHERE `category`=?"#,
+        &category.to_string(),
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        error!("{e}");
+        ServerError::DbError
+    });
+
+    let mut found_recipes = Vec::new();
+
+    if let Ok(ids) = recipes {
+        for id in ids.iter() {
+            found_recipes.push(Uuid::parse_str(&id.id).map_err(|_| {
+                error!("Failed to parse ID from a value of the DB");
+                ServerError::DbError
+            })?);
+        }
+
+        info!(
+            "{} recipes found using the category: {category}.",
+            found_recipes.len()
+        );
+        debug!("{:?}", found_recipes);
+    } else {
+        info!("No recipes found using the category: {category}.");
+    }
+
+    Ok(found_recipes)
+}
+
+#[instrument(skip(pool))]
+pub async fn search_recipe_by_rating(
+    pool: &MySqlPool,
+    rating: StarRate,
+) -> Result<Vec<Uuid>, Box<dyn Error>> {
+    let recipes = sqlx::query!(
+        r#"SELECT `id` FROM `Cocktail` WHERE `rating`>=?"#,
+        &rating.to_string(),
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| {
+        error!("{e}");
+        ServerError::DbError
+    });
+
+    let mut found_recipes = Vec::new();
+
+    if let Ok(ids) = recipes {
+        for id in ids.iter() {
+            found_recipes.push(Uuid::parse_str(&id.id).map_err(|_| {
+                error!("Failed to parse ID from a value of the DB");
+                ServerError::DbError
+            })?);
+        }
+
+        info!(
+            "{} recipes found with more than {rating} stars.",
+            found_recipes.len()
+        );
+        debug!("{:?}", found_recipes);
+    } else {
+        info!("No recipes found having {rating} or more stars.");
+    }
+
+    Ok(found_recipes)
+}
+
+#[instrument(skip(pool))]
 async fn get_tags_for_recipe(
     pool: &MySqlPool,
     id: &str,
@@ -253,7 +370,7 @@ async fn get_ingredients_for_recipe(
     Ok(ingredients)
 }
 
-fn stepize<'a>(steps: &'a str) -> Vec<&'a str> {
+fn stepize(steps: &str) -> Vec<&str> {
     let mut step_list = Vec::new();
 
     for line in steps.split("/n") {

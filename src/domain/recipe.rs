@@ -122,9 +122,9 @@ impl std::fmt::Display for StarRate {
     }
 }
 
-impl Into<u8> for StarRate {
-    fn into(self) -> u8 {
-        match self {
+impl From<StarRate> for u8 {
+    fn from(value: StarRate) -> Self {
+        match value {
             StarRate::One => 1,
             StarRate::Two => 2,
             StarRate::Three => 3,
@@ -231,7 +231,7 @@ impl TryFrom<&str> for QuantityUnit {
 impl TryFrom<&str> for RecipeCategory {
     type Error = DataDomainError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let value = String::from(value.to_ascii_lowercase());
+        let value = value.to_ascii_lowercase();
 
         match value.as_str() {
             "easy" => Ok(RecipeCategory::Easy),
