@@ -1,14 +1,14 @@
 {
   "db_name": "MySQL",
-  "query": "SELECT t.identifier, tg.type from `Tagged` as tg natural join `Tag` as t WHERE tg.cocktail_id = ?",
+  "query": "SELECT `tag`, `type` from `Tagged` WHERE `cocktail_id` = ?",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "identifier",
+        "name": "tag",
         "type_info": {
           "type": "VarString",
-          "flags": "NOT_NULL | PRIMARY_KEY | NO_DEFAULT_VALUE",
+          "flags": "NOT_NULL | MULTIPLE_KEY | NO_DEFAULT_VALUE",
           "max_size": 160
         }
       },
@@ -30,5 +30,5 @@
       false
     ]
   },
-  "hash": "fe66ecbc7e9d0692a0c04f0ca9e72e79b4463ade63797a9e63c224221e68b09c"
+  "hash": "02fcf0504a9a53760c7f6d476d3405a25e98759d10e0bfc9f0bfe4745433bf9c"
 }
