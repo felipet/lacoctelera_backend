@@ -61,3 +61,13 @@ _Nothing yet_
 ### Bugs reported
 
 - API docs for the method GET of `/author` are wrong for an empty search (GH-38).
+
+## [0.6.0] - 2024-12-28
+
+### Added
+
+- Implemented GET & POST of the `/recipe` resource.
+
+### Bugs fixed
+
+- The return code of the GET methods of the `/recipe` resource match what is included in the docs.
