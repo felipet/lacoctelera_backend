@@ -123,7 +123,7 @@ pub async fn search_recipe(
         recipes.push(get_recipe_from_db(&pool, id).await?)
     }
 
-    if recipes.len() > 0 {
+    if recipes.is_empty() {
         Ok(HttpResponse::Ok().json(recipes))
     } else {
         Ok(HttpResponse::NotFound().finish())
