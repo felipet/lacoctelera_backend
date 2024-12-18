@@ -54,13 +54,22 @@ use uuid::Uuid;
     responses(
         (
             status = 200,
-            description = "The query was executed successfully",
+            description = "The query was executed successfully and produced some matches.",
             body = [Recipe],
             headers(
                 ("Access-Control-Allow-Origin"),
                 ("Content-Type"),
                 ("Cache-Control"),
             )
+        ),
+        (
+            status = 404,
+            description = "The query was executed successfully but didn't produce any match.",
+            headers(
+                ("Content-Length"),
+                ("Date"),
+                ("Vary", description = "Origin,Access-Control-Request-Method,Access-Control-Request-Headers")
+            ),
         ),
         (
             status = 429,
@@ -114,7 +123,11 @@ pub async fn search_recipe(
         recipes.push(get_recipe_from_db(&pool, id).await?)
     }
 
-    Ok(HttpResponse::Ok().json(recipes))
+    if recipes.len() > 0 {
+        Ok(HttpResponse::Ok().json(recipes))
+    } else {
+        Ok(HttpResponse::NotFound().finish())
+    }
 }
 
 /// Retrieve a recipe from the DB using its unique ID.
@@ -165,7 +178,10 @@ pub async fn get_recipe(
 
     let recipe = get_recipe_from_db(&pool, &recipe_id).await?;
 
-    Ok(HttpResponse::Ok().json(recipe))
+    match recipe {
+        Some(recipe) => Ok(HttpResponse::Ok().json(recipe)),
+        None => Ok(HttpResponse::NotFound().finish()),
+    }
 }
 
 #[derive(Debug, Clone)]
