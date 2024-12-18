@@ -6,11 +6,23 @@
 
 //! Example
 
-use crate::domain::{QuantityUnit, Recipe, RecipeCategory, RecipeContains, RecipeQuery, Tag};
-use actix_web::{get, web, HttpResponse, Responder};
+use crate::{
+    domain::{DataDomainError, RecipeQuery},
+    routes::recipe::{
+        get_recipe_from_db, search_recipe_by_category, search_recipe_by_name,
+        search_recipe_by_rating,
+    },
+};
+use actix_web::{
+    get,
+    web::{Data, Path, Query},
+    HttpResponse,
+};
+use sqlx::MySqlPool;
 use std::convert::TryFrom;
+use std::error::Error;
 use std::fmt::Display;
-use tracing::info;
+use tracing::{info, instrument};
 use uuid::Uuid;
 
 /// GET method for the /recipe endpoint (Public).
@@ -42,13 +54,22 @@ use uuid::Uuid;
     responses(
         (
             status = 200,
-            description = "The query was executed successfully",
+            description = "The query was executed successfully and produced some matches.",
             body = [Recipe],
             headers(
                 ("Access-Control-Allow-Origin"),
                 ("Content-Type"),
                 ("Cache-Control"),
             )
+        ),
+        (
+            status = 404,
+            description = "The query was executed successfully but didn't produce any match.",
+            headers(
+                ("Content-Length"),
+                ("Date"),
+                ("Vary", description = "Origin,Access-Control-Request-Method,Access-Control-Request-Headers")
+            ),
         ),
         (
             status = 429,
@@ -62,61 +83,78 @@ use uuid::Uuid;
     )
 )]
 #[get("")]
-pub async fn search_recipe(req: web::Query<RecipeQuery>) -> impl Responder {
+pub async fn search_recipe(
+    req: Query<RecipeQuery>,
+    pool: Data<MySqlPool>,
+) -> Result<HttpResponse, Box<dyn Error>> {
     let search_type: SearchType = (&req.0).try_into().expect("Wrong query");
 
     info!("Recipe search ({search_type}) using: {{{}}}", req.0);
 
-    let template_recipe = Recipe::new(
-        &Uuid::now_v7().to_string(),
-        "Demo recipe",
-        None,
-        Some(&Vec::from([
-            Tag::new("alcoholic").unwrap(),
-            Tag::new("rum-based").unwrap(),
-        ])),
-        Some(&Vec::from([
-            Tag::new("alcoholic").unwrap(),
-            Tag::new("rum-based").unwrap(),
-        ])),
-        &RecipeCategory::Easy.to_string(),
-        Some("A delicious cocktail for summer."),
-        None,
-        &Vec::from([
-            RecipeContains {
-                quantity: 100.0,
-                unit: QuantityUnit::Grams,
-                ingredient_id: Uuid::now_v7(),
-            },
-            RecipeContains {
-                quantity: 20.0,
-                unit: QuantityUnit::MilliLiter,
-                ingredient_id: Uuid::now_v7(),
-            },
-        ]),
-        &["Pour all the ingredients in a shaker", "Shake and serve"],
-        &Uuid::now_v7().to_string(),
-    )
-    .unwrap();
+    let recipe_ids = match search_type {
+        SearchType::ByName => {
+            let search_token = match req.0.name {
+                Some(name) => name,
+                None => return Err(Box::new(DataDomainError::InvalidSearch)),
+            };
+            search_recipe_by_name(&pool, &search_token).await?
+        }
+        SearchType::ByCategory => {
+            let search_token = match req.0.category {
+                Some(category) => category,
+                None => return Err(Box::new(DataDomainError::InvalidSearch)),
+            };
+            search_recipe_by_category(&pool, search_token).await?
+        }
+        SearchType::ByRating => {
+            let search_token = match req.0.rating {
+                Some(rating) => rating,
+                None => return Err(Box::new(DataDomainError::InvalidSearch)),
+            };
+            search_recipe_by_rating(&pool, search_token).await?
+        }
+        SearchType::ByTags => return Ok(HttpResponse::NotImplemented().finish()),
+        SearchType::Intersection => return Ok(HttpResponse::NotImplemented().finish()),
+    };
 
-    HttpResponse::NotImplemented().json(template_recipe)
+    let mut recipes = Vec::new();
+
+    for id in recipe_ids.iter() {
+        recipes.push(get_recipe_from_db(&pool, id).await?)
+    }
+
+    if recipes.is_empty() {
+        Ok(HttpResponse::Ok().json(recipes))
+    } else {
+        Ok(HttpResponse::NotFound().finish())
+    }
 }
 
 /// Retrieve a recipe from the DB using its unique ID.
 #[utoipa::path(
     get,
-    path = "/recipe",
+    context_path = "/recipe/",
     tag = "Recipe",
     responses(
         (
             status = 200,
             description = "The recipe identified by the given ID was found in the DB",
-            body = [Recipe],
+            body = Recipe,
             headers(
-                ("Access-Control-Allow-Origin"),
+                ("Content-Length"),
                 ("Content-Type"),
-                ("Cache-Control"),
-            )
+                ("Date"),
+                ("Vary", description = "Origin,Access-Control-Request-Method,Access-Control-Request-Headers")
+            ),
+        ),
+        (
+            status = 404,
+            description = "The given recipe's ID was not found in the DB.",
+            headers(
+                ("Content-Length"),
+                ("Date"),
+                ("Vary", description = "Origin,Access-Control-Request-Method,Access-Control-Request-Headers")
+            ),
         ),
         (
             status = 429,
@@ -130,44 +168,20 @@ pub async fn search_recipe(req: web::Query<RecipeQuery>) -> impl Responder {
     )
 
 )]
+#[instrument(skip(pool))]
 #[get("{id}")]
-pub async fn get_recipe(path: web::Path<(String,)>) -> impl Responder {
-    info!("Recipe ID: {:#?} requested", path.0);
-    info!("Sending default Recipe descriptor until the final logic is implemented.");
+pub async fn get_recipe(
+    pool: Data<MySqlPool>,
+    path: Path<(String,)>,
+) -> Result<HttpResponse, Box<dyn Error>> {
+    let recipe_id = Uuid::parse_str(&path.0).map_err(|_| DataDomainError::InvalidId)?;
 
-    let template_recipe = Recipe::new(
-        &Uuid::now_v7().to_string(),
-        "Demo recipe",
-        None,
-        Some(&Vec::from([
-            Tag::new("alcoholic").unwrap(),
-            Tag::new("rum-based").unwrap(),
-        ])),
-        Some(&Vec::from([
-            Tag::new("alcoholic").unwrap(),
-            Tag::new("rum-based").unwrap(),
-        ])),
-        &RecipeCategory::Easy.to_string(),
-        Some("A delicious cocktail for summer."),
-        None,
-        &Vec::from([
-            RecipeContains {
-                quantity: 100.0,
-                unit: QuantityUnit::Grams,
-                ingredient_id: Uuid::now_v7(),
-            },
-            RecipeContains {
-                quantity: 20.0,
-                unit: QuantityUnit::MilliLiter,
-                ingredient_id: Uuid::now_v7(),
-            },
-        ]),
-        &["Pour all the ingredients in a shaker", "Shake and serve"],
-        &Uuid::now_v7().to_string(),
-    )
-    .unwrap();
+    let recipe = get_recipe_from_db(&pool, &recipe_id).await?;
 
-    HttpResponse::NotImplemented().json(template_recipe)
+    match recipe {
+        Some(recipe) => Ok(HttpResponse::Ok().json(recipe)),
+        None => Ok(HttpResponse::NotFound().finish()),
+    }
 }
 
 #[derive(Debug, Clone)]

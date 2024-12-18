@@ -1,0 +1,124 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT * FROM `Cocktail` WHERE id=?",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | PRIMARY_KEY | NO_DEFAULT_VALUE",
+          "max_size": 160
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "max_size": 160
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": {
+          "type": "VarString",
+          "flags": "",
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "category",
+        "type_info": {
+          "type": "String",
+          "flags": "ENUM",
+          "max_size": 32
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "steps",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "max_size": 2000
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "image_id",
+        "type_info": {
+          "type": "VarString",
+          "flags": "",
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "url",
+        "type_info": {
+          "type": "VarString",
+          "flags": "",
+          "max_size": 1020
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "rating",
+        "type_info": {
+          "type": "String",
+          "flags": "ENUM",
+          "max_size": 4
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "update_date",
+        "type_info": {
+          "type": "Timestamp",
+          "flags": "UNSIGNED | BINARY | TIMESTAMP | ON_UPDATE_NOW",
+          "max_size": 19
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "creation_date",
+        "type_info": {
+          "type": "Timestamp",
+          "flags": "UNSIGNED | BINARY | TIMESTAMP",
+          "max_size": 19
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "owner",
+        "type_info": {
+          "type": "VarString",
+          "flags": "MULTIPLE_KEY",
+          "max_size": 160
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "b106d6443c2b09eecc54da700d8ce77cb7b85f5ed46cb8bf5c7419a8cfb1c29b"
+}

@@ -1,0 +1,34 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT `tag`, `type` from `Tagged` WHERE `cocktail_id` = ?",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tag",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | MULTIPLE_KEY | NO_DEFAULT_VALUE",
+          "max_size": 160
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "type",
+        "type_info": {
+          "type": "String",
+          "flags": "NOT_NULL | ENUM",
+          "max_size": 28
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "02fcf0504a9a53760c7f6d476d3405a25e98759d10e0bfc9f0bfe4745433bf9c"
+}

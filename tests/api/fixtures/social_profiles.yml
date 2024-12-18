@@ -1,0 +1,3 @@
+- { provider_name: 'Facebook', website: 'https://facebook.com/' }
+- { provider_name: 'Instagram', website: 'https://instagram.com/' }
+- { provider_name: 'X', website: 'https://x.com/' }

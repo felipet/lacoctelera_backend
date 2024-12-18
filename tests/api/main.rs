@@ -5,6 +5,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 mod author_api;
+mod fixtures;
 mod helpers;
 mod ingredient_api;
+mod recipe_api;
 mod token_request;

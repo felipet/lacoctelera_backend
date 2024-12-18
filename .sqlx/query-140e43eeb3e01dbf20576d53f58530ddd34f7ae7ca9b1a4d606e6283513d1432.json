@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO AuthorHashSocialProfile (id, provider_name, user_name, author_id) VALUES (?,?,?,?);",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "140e43eeb3e01dbf20576d53f58530ddd34f7ae7ca9b1a4d606e6283513d1432"
+}

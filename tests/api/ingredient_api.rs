@@ -105,12 +105,13 @@ type FixtureResult = Result<Vec<Ingredient>, String>;
 
 async fn seed_ingredients(pool: &MySqlPool) -> FixtureResult {
     let test_ingredients = Vec::from([
-        Ingredient::parse("Vodka", "spirit", Some("Regular Vodka 40%")).unwrap(),
-        Ingredient::parse("White Rum", "spirit", Some("Any white Rum")).unwrap(),
-        Ingredient::parse("Lime Super Juice", "other", None).unwrap(),
-        Ingredient::parse("Agave Sirup", "other", None).unwrap(),
-        Ingredient::parse("Soda water", "soft_drink", None).unwrap(),
+        Ingredient::parse(None, "Vodka", "spirit", Some("Regular Vodka 40%")).unwrap(),
+        Ingredient::parse(None, "White Rum", "spirit", Some("Any white Rum")).unwrap(),
+        Ingredient::parse(None, "Lime Super Juice", "other", None).unwrap(),
+        Ingredient::parse(None, "Agave Sirup", "other", None).unwrap(),
+        Ingredient::parse(None, "Soda water", "soft_drink", None).unwrap(),
         Ingredient::parse(
+            None,
             "Absolut Vodka",
             "spirit",
             Some("Only Absolut gives the needed flavor profile."),
@@ -123,9 +124,10 @@ async fn seed_ingredients(pool: &MySqlPool) -> FixtureResult {
     for ingredient in test_ingredients.iter() {
         let query = sqlx::query!(
             r#"
-            INSERT INTO Ingredient (name, category, `desc`) VALUES
-                (?,?,?)
+            INSERT INTO Ingredient (`id`, `name`, `category`, `description`) VALUES
+                (?,?,?,?)
             "#,
+            uuid::Uuid::now_v7().to_string(),
             ingredient.name(),
             ingredient.category().to_string(),
             ingredient.desc(),
@@ -148,7 +150,7 @@ async fn seed_ingredients(pool: &MySqlPool) -> FixtureResult {
 async fn search_no_credentials() -> Result<(), String> {
     info!("Test Case::resource::/ingredient (GET) -> Search a non existing ingredient");
     let mut test_builder = IngredientApiBuilder::default();
-    TestBuilder::ingredient_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     let name = "Vodka";
@@ -190,7 +192,7 @@ async fn search_no_credentials() -> Result<(), String> {
 async fn search_with_credentials() -> Result<(), String> {
     info!("Test Case::resource::/ingredient (GET) -> Search a non existing ingredient");
     let mut test_builder = IngredientApiBuilder::default();
-    TestBuilder::ingredient_api_with_credentials(&mut test_builder);
+    TestBuilder::api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     let name = "Vodka";
@@ -205,7 +207,7 @@ async fn search_with_credentials() -> Result<(), String> {
 async fn post_no_credentials() -> Result<(), String> {
     info!("Test Case::resource::/ingredient (POST) -> Add an ingredient using a valid JSON");
     let mut test_builder = IngredientApiBuilder::default();
-    TestBuilder::ingredient_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     let test_payload = [

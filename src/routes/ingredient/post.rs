@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::MySqlPool;
 use tracing::{debug, error, info, instrument};
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, ToSchema)]
 pub struct FormData {
@@ -57,6 +58,7 @@ pub async fn add_ingredient(
     pool: web::Data<MySqlPool>,
 ) -> HttpResponse {
     let ingredient = match Ingredient::parse(
+        None,
         &ingredient.name,
         ingredient.category.as_ref(),
         ingredient.desc.as_deref(),
@@ -81,12 +83,18 @@ pub async fn add_ingredient(
 }
 
 #[instrument(skip(pool, ingredient))]
-async fn insert_ingredient(pool: &MySqlPool, ingredient: Ingredient) -> Result<(), anyhow::Error> {
+async fn insert_ingredient(
+    pool: &MySqlPool,
+    ingredient: Ingredient,
+) -> Result<Uuid, anyhow::Error> {
+    let new_id = Uuid::now_v7();
+
     sqlx::query!(
         r#"
-        INSERT INTO Ingredient (name, category, `desc`) VALUES
-        (?, ?, ?)
+        INSERT INTO Ingredient (`id`, `name`, `category`, `description`) VALUES
+        (? , ?, ?, ?)
         "#,
+        new_id.to_string(),
         ingredient.name(),
         ingredient.category().to_str().to_owned(),
         ingredient.desc(),
@@ -96,5 +104,5 @@ async fn insert_ingredient(pool: &MySqlPool, ingredient: Ingredient) -> Result<(
 
     info!("New ingredient inserted in the DB.");
 
-    Ok(())
+    Ok(new_id)
 }

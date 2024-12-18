@@ -1,0 +1,24 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT `id` FROM `Cocktail` WHERE name like ?",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | PRIMARY_KEY | NO_DEFAULT_VALUE",
+          "max_size": 160
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1864f548c434cba2005c72f19c3554e0c3e820eeb4f39355092290b6369b9ccf"
+}

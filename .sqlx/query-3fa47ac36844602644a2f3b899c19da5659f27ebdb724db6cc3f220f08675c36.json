@@ -1,0 +1,34 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT `ingredient_id`, `amount` FROM `UsedIngredient` WHERE `cocktail_id`=?",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ingredient_id",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | PRIMARY_KEY | MULTIPLE_KEY | NO_DEFAULT_VALUE",
+          "max_size": 160
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "amount",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "max_size": 56
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "3fa47ac36844602644a2f3b899c19da5659f27ebdb724db6cc3f220f08675c36"
+}

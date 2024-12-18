@@ -70,7 +70,8 @@ pub async fn register_new_author(pool: &MySqlPool, author: &Author) -> Result<Uu
 
             transaction
                 .execute(sqlx::query!(
-                    "INSERT INTO AuthorHashSocialProfile (provider_name, user_name, author_id) VALUES (?,?,?);",
+                    "INSERT INTO AuthorHashSocialProfile (id, provider_name, user_name, author_id) VALUES (?,?,?,?);",
+                    Uuid::now_v7().to_string(),
                     social_profile.provider_name,
                     user_account,
                     id,

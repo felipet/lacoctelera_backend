@@ -4,16 +4,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::helpers::{
-    spawn_app, ApiTesterBuilder, Credentials, Resource, TestApp, TestBuilder, TestObject,
+use crate::{
+    fixtures::{self, AuthorFixture},
+    helpers::{
+        spawn_app, ApiTesterBuilder, Credentials, Resource, TestApp, TestBuilder, TestObject,
+    },
 };
 use actix_web::http::StatusCode;
 use lacoctelera::domain::{Author, AuthorBuilder, SocialProfile};
-use names::Generator;
 use pretty_assertions::assert_eq;
 use reqwest::Response;
-use sqlx::{Executor, MySqlPool};
-use tracing::{debug, error, info};
+use sqlx::MySqlPool;
+use std::iter::zip;
+use tracing::info;
 use uuid::Uuid;
 
 pub struct AuthorApiTester {
@@ -108,105 +111,10 @@ impl TestObject for AuthorApiTester {
     }
 }
 
-async fn seed_author(pool: &MySqlPool, authors: &[Author]) -> Result<Vec<Uuid>, String> {
-    let mut ids = Vec::new();
-
-    let mut transaction = pool.begin().await.expect("Failed to acquire DB");
-
-    for author in authors {
-        let id = Uuid::now_v7();
-        transaction
-            .execute(sqlx::query!(
-                "INSERT INTO Author VALUES (?, ?, ?, ?, ?, ?, ?)",
-                id.to_string(),
-                author.name(),
-                author.surname(),
-                author.email(),
-                author.shareable(),
-                author.description(),
-                author.website(),
-            ))
-            .await
-            .map_err(|e| {
-                error!("{e}");
-                "Error seeding authors".to_string()
-            })?;
-        ids.push(id);
-
-        if let Some(profiles) = author.social_profiles() {
-            for profile in profiles {
-                transaction
-                    .execute(sqlx::query!(
-                        r#"
-                    INSERT INTO AuthorHashSocialProfile (provider_name, user_name, author_id)
-                    VALUES (?, ?, ?);
-                    "#,
-                        profile.provider_name,
-                        profile.website,
-                        id.to_string(),
-                    ))
-                    .await
-                    .map_err(|e| {
-                        error!("{e}");
-                        "Error seeding authors".to_string()
-                    })?;
-            }
-        }
-    }
-
-    transaction
-        .commit()
-        .await
-        .expect("Failed to commit authors to the DB");
-
-    Ok(ids)
-}
-
-fn valid_author(shareable: bool, social_providers: Option<Vec<SocialProfile>>) -> Author {
-    let social_profiles = if let Some(social_providers) = social_providers {
-        let mut social_profiles = social_providers.clone();
-
-        social_profiles
-            .iter_mut()
-            .for_each(|profile| profile.website.insert_str(profile.website.len(), "janedoe"));
-
-        social_profiles
-    } else {
-        Vec::new()
-    };
-
-    let random = Generator::default().next().unwrap();
-    let name_and_surname: Vec<&str> = random.split("-").collect();
-
-    AuthorBuilder::default()
-        .set_name(name_and_surname[0])
-        .set_surname(name_and_surname[1])
-        .set_email("janedoe@mail.com")
-        .set_shareable(shareable)
-        .set_description("A simple description")
-        .set_website("https://janedoe.com")
-        .set_social_profiles(&social_profiles)
-        .build()
-        .expect("Failed to build a new Author")
-}
-
-/// The DB is preloaded with the supported Social Network providers by the service. So why not loading those for free?
-async fn social_network_providers(pool: &MySqlPool) -> Vec<SocialProfile> {
-    let record = sqlx::query_as!(
-        SocialProfile,
-        "SELECT provider_name, website FROM SocialProfile;"
-    )
-    .fetch_all(pool)
-    .await
-    .expect("Failed to retrieve Social Network profiles from the test DB");
-
-    record
-}
-
 #[actix_web::test]
 async fn delete_no_credentials() -> Result<(), String> {
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     info!("Test Case::resource::/author (DELETE) -> Attempt to delete a non existing author");
@@ -218,17 +126,23 @@ async fn delete_no_credentials() -> Result<(), String> {
     );
 
     info!("Test Case::resource::/author (DELETE) -> Attempt to delete an existing author");
-    let author = valid_author(false, None);
-    debug!("Test author: {:?}", author);
-
     // Seed the author into the DB.
-    let ids = seed_author(test.db_pool(), &[author]).await?;
-    let author_id = &ids[0].to_string();
+    let mut author_fixture = AuthorFixture::default();
+    author_fixture.load()?;
+    let without_social_media = false;
+    author_fixture
+        .seed(test.db_pool(), without_social_media)
+        .await?;
+
+    let author_id = author_fixture.valid_fixtures[0]
+        .id()
+        .expect("Failed to unwrap fixture author's ID")
+        .to_string();
 
     // Eventually, the error will be Unauthorized. As of today, Actix returns the api_key is missing, thus a
     // bad request.
     assert_eq!(
-        test.delete(author_id).await.status().as_u16(),
+        test.delete(&author_id).await.status().as_u16(),
         StatusCode::BAD_REQUEST
     );
 
@@ -238,7 +152,7 @@ async fn delete_no_credentials() -> Result<(), String> {
 #[actix_web::test]
 async fn delete_with_credentials() -> Result<(), String> {
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_with_credentials(&mut test_builder);
+    TestBuilder::api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     info!("Test Case::resource::/author (DELETE) -> Attempt to delete using a wrong author ID");
@@ -255,12 +169,21 @@ async fn delete_with_credentials() -> Result<(), String> {
     assert_eq!(test.delete(&id).await.status().as_u16(), StatusCode::OK);
 
     info!("Test Case::resource::/author (DELETE) -> Attempt to delete an existing author");
-    let author = valid_author(false, None);
-    debug!("Test author: {:?}", author);
+    let mut social_profile_fixture = fixtures::SocialProfileFixture::default();
+    social_profile_fixture.load()?;
+    social_profile_fixture.seed(test.db_pool()).await?;
 
-    // Seed the author into the DB.
-    let ids = seed_author(test.db_pool(), &[author]).await?;
-    let author_id = &ids[0].to_string();
+    let mut author_fixture = AuthorFixture::default();
+    author_fixture.load()?;
+    let with_social_media = true;
+    author_fixture
+        .seed(test.db_pool(), with_social_media)
+        .await?;
+
+    let author_id = &author_fixture.valid_fixtures[0]
+        .id()
+        .expect("Failed to unwrap fixture author's ID")
+        .to_string();
 
     // Eventually, the error will be Unauthorized. As of today, Actix returns the api_key is missing, thus a
     // bad request.
@@ -278,7 +201,7 @@ async fn get_no_credentials() -> Result<(), String> {
     let author_id = Uuid::now_v7().to_string();
     let query = format!("/{author_id}");
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
     assert_eq!(
         test.get(&query).await.status().as_u16(),
@@ -287,14 +210,27 @@ async fn get_no_credentials() -> Result<(), String> {
 
     info!("Test Case::resource::/author (GET) -> Request an author whose ID does exist");
     // Let's get two author instances.
-    let author_shareable = valid_author(true, None);
-    debug!("Test author: {:?}", author_shareable);
-    let author_nonshareable = valid_author(false, None);
-    debug!("Test author: {:?}", author_nonshareable);
-    let ids = seed_author(test.db_pool(), &[author_shareable, author_nonshareable]).await?;
+    let mut social_profile_fixture = fixtures::SocialProfileFixture::default();
+    social_profile_fixture.load()?;
+    social_profile_fixture.seed(test.db_pool()).await?;
+
+    let with_social_media = true;
+    let mut author_fixture = AuthorFixture::default();
+    author_fixture.load()?;
+    author_fixture
+        .seed(test.db_pool(), with_social_media)
+        .await?;
+
+    let author_shareable = &author_fixture.valid_fixtures[0];
+    let author_nonshareable = &author_fixture.valid_fixtures[1];
 
     // Since we are not using an API key, we should not receive private data when the author's profile is private.
-    let query = format!("/{}", ids[0]);
+    let query = format!(
+        "/{}",
+        author_fixture.valid_fixtures[0]
+            .id()
+            .expect("Failed to unwrap fixture author's ID")
+    );
     let response = test.get(&query).await;
     assert_eq!(response.status().as_u16(), StatusCode::OK);
     let received_author =
@@ -304,7 +240,23 @@ async fn get_no_credentials() -> Result<(), String> {
     assert!(received_author.description().is_some());
     assert!(received_author.website().is_some());
 
-    let query = format!("/{}", ids[1]);
+    for (p1, p2) in zip(
+        received_author.social_profiles().unwrap(),
+        author_shareable.social_profiles().unwrap(),
+    ) {
+        if !p1.website.contains(&p2.website) {
+            println!("{:?}", p2);
+            println!("{:?}", p1);
+            panic!("Social profile not found");
+        }
+    }
+
+    let query = format!(
+        "/{}",
+        author_fixture.valid_fixtures[1]
+            .id()
+            .expect("Failed to unwrap fixture author's ID")
+    );
     let response = test.get(&query).await;
     assert_eq!(response.status().as_u16(), StatusCode::OK);
     let received_author =
@@ -314,7 +266,16 @@ async fn get_no_credentials() -> Result<(), String> {
     assert!(received_author.description().is_none());
     assert!(received_author.website().is_some());
 
-    // TODO: Missing social profiles check
+    for (p1, p2) in zip(
+        received_author.social_profiles().unwrap(),
+        author_nonshareable.social_profiles().unwrap(),
+    ) {
+        if !p1.website.contains(&p2.website) {
+            println!("{:?}", p2);
+            println!("{:?}", p1);
+            panic!("Social profile not found");
+        }
+    }
 
     Ok(())
 }
@@ -325,7 +286,7 @@ async fn get_with_credentials() -> Result<(), String> {
     let author_id = Uuid::now_v7().to_string();
     let query = format!("/{author_id}");
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_with_credentials(&mut test_builder);
+    TestBuilder::api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
     assert_eq!(
         test.get(&query).await.status().as_u16(),
@@ -334,50 +295,85 @@ async fn get_with_credentials() -> Result<(), String> {
 
     info!("Test Case::resource::/author (GET) -> Request an author whose ID does exist");
     // Let's get two author instances.
-    let mut author_shareable = valid_author(true, None);
-    debug!("Test author: {:?}", author_shareable);
-    let mut author_nonshareable = valid_author(false, None);
-    debug!("Test author: {:?}", author_nonshareable);
-    let ids = seed_author(
-        test.db_pool(),
-        &[author_shareable.clone(), author_nonshareable.clone()],
-    )
-    .await?;
-    author_shareable.update_from(
-        &AuthorBuilder::default()
-            .set_id(&ids[0].to_string())
-            .build()
-            .expect("msg"),
-    );
+    let mut social_profile_fixture = fixtures::SocialProfileFixture::default();
+    social_profile_fixture.load()?;
+    social_profile_fixture.seed(test.db_pool()).await?;
+
+    let with_social_media = true;
+    let mut author_fixture = AuthorFixture::default();
+    author_fixture.load()?;
+    author_fixture
+        .seed(test.db_pool(), with_social_media)
+        .await?;
+
+    let author_shareable = &author_fixture.valid_fixtures[0];
+    let author_nonshareable = &author_fixture.valid_fixtures[1];
 
     // Using credentials shall allow us to receive all the attributes of the author's profile.
-    let query = format!("/{}", ids[0]);
+    let query = format!(
+        "/{}",
+        author_shareable
+            .id()
+            .expect("Failed to unwrap fixture author's ID")
+    );
     let response = test.get(&query).await;
     assert_eq!(response.status().as_u16(), StatusCode::OK);
     let received_author =
         serde_json::from_str::<Author>(&response.text().await.expect("Failed to parse author"))
             .expect("Failed to deserialize author");
-    let temporal_author = AuthorBuilder::default()
-        .set_id(&received_author.id().unwrap())
-        .build()
-        .expect("Failed to build a test author");
-    author_shareable.update_from(&temporal_author);
-    assert_eq!(received_author, author_shareable);
+    assert_eq!(received_author.id(), author_shareable.id());
+    assert_eq!(received_author.name(), author_shareable.name());
+    assert_eq!(received_author.surname(), author_shareable.surname());
+    assert_eq!(
+        received_author.description(),
+        author_shareable.description()
+    );
+    assert_eq!(received_author.website(), author_shareable.website());
+    assert_eq!(received_author.email(), author_shareable.email());
+    assert_eq!(received_author.shareable(), author_shareable.shareable());
+    for (p1, p2) in zip(
+        received_author.social_profiles().unwrap(),
+        author_shareable.social_profiles().unwrap(),
+    ) {
+        if !p1.website.contains(&p2.website) {
+            println!("{:?}", p2);
+            println!("{:?}", p1);
+            panic!("Social profile not found");
+        }
+    }
 
-    let query = format!("/{}", ids[1]);
+    let query = format!(
+        "/{}",
+        author_nonshareable
+            .id()
+            .expect("Failed to unwrap fixture author's ID")
+    );
     let response = test.get(&query).await;
     assert_eq!(response.status().as_u16(), StatusCode::OK);
     let received_author =
         serde_json::from_str::<Author>(&response.text().await.expect("Failed to parse author"))
             .expect("Failed to deserialize author");
-    let temporal_author = AuthorBuilder::default()
-        .set_id(&received_author.id().unwrap())
-        .build()
-        .expect("Failed to build a test author");
-    author_nonshareable.update_from(&temporal_author);
-    assert_eq!(received_author, author_nonshareable);
+    assert_eq!(received_author.id(), author_nonshareable.id());
+    assert_eq!(received_author.name(), author_nonshareable.name());
+    assert_eq!(received_author.surname(), author_nonshareable.surname());
+    assert_eq!(
+        received_author.description(),
+        author_nonshareable.description()
+    );
+    assert_eq!(received_author.website(), author_nonshareable.website());
+    assert_eq!(received_author.email(), author_nonshareable.email());
+    assert_eq!(received_author.shareable(), author_nonshareable.shareable());
 
-    // TODO: Missing social profiles check
+    for (p1, p2) in zip(
+        received_author.social_profiles().unwrap(),
+        author_nonshareable.social_profiles().unwrap(),
+    ) {
+        if !p1.website.contains(&p2.website) {
+            println!("{:?}", p2);
+            println!("{:?}", p1);
+            panic!("Social profile not found");
+        }
+    }
 
     Ok(())
 }
@@ -387,7 +383,7 @@ async fn head() -> Result<(), String> {
     info!("Test Case::resource::/author (HEAD) -> Attempt to request a non existing client");
     let id = Uuid::now_v7().to_string();
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     assert_eq!(
@@ -396,11 +392,24 @@ async fn head() -> Result<(), String> {
     );
 
     info!("Test Case::resource::/author (HEAD) -> Attempt to request an existing client");
-    let author = valid_author(true, None);
-    let ids = seed_author(test.db_pool(), &[author.clone()]).await?;
+    let with_social_media = false;
+    let mut author_fixture = AuthorFixture::default();
+    author_fixture.load()?;
+    author_fixture
+        .seed(test.db_pool(), with_social_media)
+        .await?;
+    let author_shareable = &author_fixture.valid_fixtures[0];
 
     assert_eq!(
-        test.head(&ids[0].to_string()).await.status().as_u16(),
+        test.head(
+            &author_shareable
+                .id()
+                .expect("Failed to extract ID")
+                .to_string()
+        )
+        .await
+        .status()
+        .as_u16(),
         StatusCode::OK
     );
 
@@ -411,7 +420,7 @@ async fn head() -> Result<(), String> {
 async fn options() -> Result<(), String> {
     info!("Test Case::resource::/author (OPTIONS) -> Preflight check");
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
     let response = test.options().await;
 
@@ -439,11 +448,17 @@ async fn options() -> Result<(), String> {
 async fn post_no_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (POST) -> Add a new valid author entry");
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
-    let author = valid_author(true, None);
-    let response = test.post(&author).await;
+    let with_social_media = false;
+    let mut author_fixture = AuthorFixture::default();
+    author_fixture.load()?;
+    author_fixture
+        .seed(test.db_pool(), with_social_media)
+        .await?;
+    let author = &author_fixture.valid_fixtures[0];
+    let response = test.post(author).await;
     // This will change once the backend handles properly unauthorised requests.
     assert_eq!(response.status().as_u16(), StatusCode::BAD_REQUEST);
 
@@ -453,12 +468,39 @@ async fn post_no_credentials() -> Result<(), String> {
 #[actix_web::test]
 async fn post_with_credentials() -> Result<(), String> {
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_with_credentials(&mut test_builder);
+    TestBuilder::api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     info!("Test Case::resource::/author (POST) -> Add a new valid author entry");
-    let social_profiles = Some(social_network_providers(test.db_pool()).await);
-    let author_base = valid_author(true, social_profiles);
+    let mut social_profile_fixture = fixtures::SocialProfileFixture::default();
+    social_profile_fixture.load()?;
+    social_profile_fixture.seed(test.db_pool()).await?;
+
+    let mut author_fixture = AuthorFixture::default();
+    author_fixture.load()?;
+
+    let author_template = &author_fixture.valid_fixtures[0];
+
+    let mut author_profiles = Vec::new();
+
+    for profile in social_profile_fixture.valid_fixtures {
+        author_profiles.push(SocialProfile {
+            provider_name: profile.provider_name,
+            website: author_template.name().unwrap().to_owned(),
+        });
+    }
+
+    let author_base = AuthorBuilder::default()
+        .set_name(author_template.name().unwrap())
+        .set_surname(author_template.surname().unwrap())
+        .set_email(author_template.email().unwrap())
+        .set_description(author_template.description().unwrap())
+        .set_shareable(author_template.shareable())
+        .set_website(author_template.website().unwrap())
+        .set_social_profiles(&author_profiles)
+        .build()
+        .map_err(|e| format!("Failed to build a test author using a builder: {e}"))?;
+
     let response = test.post(&author_base).await;
     assert_eq!(response.status().as_u16(), StatusCode::OK);
     let payload = serde_json::from_str::<Author>(
@@ -468,7 +510,7 @@ async fn post_with_credentials() -> Result<(), String> {
             .expect("Failed to extract the payload"),
     )
     .expect("Failed to deserialize payload");
-    let author = serde_json::from_str::<Author>(
+    let received_author = serde_json::from_str::<Author>(
         &test
             .get(&format!(
                 "/{}",
@@ -480,7 +522,22 @@ async fn post_with_credentials() -> Result<(), String> {
             .unwrap(),
     )
     .expect("Failed to parse the received author");
-    assert_eq!(author, author_base);
+    assert_eq!(received_author.name(), author_base.name());
+    assert_eq!(received_author.surname(), author_base.surname());
+    assert_eq!(received_author.description(), author_base.description());
+    assert_eq!(received_author.website(), author_base.website());
+    assert_eq!(received_author.email(), author_base.email());
+    assert_eq!(received_author.shareable(), author_base.shareable());
+    for (p1, p2) in zip(
+        received_author.social_profiles().unwrap(),
+        author_base.social_profiles().unwrap(),
+    ) {
+        if !p1.website.contains(&p2.website) {
+            println!("{:?}", p2);
+            println!("{:?}", p1);
+            panic!("Social profile not found");
+        }
+    }
 
     info!(
         "Test Case::resource::/author (POST) -> Add a new valid author entry using default values"
@@ -523,21 +580,22 @@ async fn post_with_credentials() -> Result<(), String> {
 async fn patch_no_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (PATCH) -> Modify an existing author entry");
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
-    let author = valid_author(true, None);
-    let ids = seed_author(test.db_pool(), &[author.clone()]).await?;
-    let id = &ids[0].to_string();
+    let mut author_fixture = AuthorFixture::default();
+    author_fixture.load()?;
+    author_fixture.seed(test.db_pool(), false).await?;
+    let author = &author_fixture.valid_fixtures[0];
 
     let patched_author = AuthorBuilder::default()
-        .set_id(id)
+        .set_id(&author.id().unwrap())
         .set_name("Juana")
         .set_email("juana@mail.com")
         .build()
         .expect("Failed to build an author descriptor");
 
-    let response = test.patch(id, &patched_author).await;
+    let response = test.patch(&author.id().unwrap(), &patched_author).await;
 
     // This will change once the backend implements a proper unauthorised response.
     assert_eq!(response.status().as_u16(), StatusCode::BAD_REQUEST);
@@ -549,17 +607,42 @@ async fn patch_no_credentials() -> Result<(), String> {
 async fn patch_with_credentials() -> Result<(), String> {
     info!("Test Case::resource::/author (PATCH) -> Modify an existing author entry");
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_with_credentials(&mut test_builder);
+    TestBuilder::api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
-    let social_providers = social_network_providers(test.db_pool()).await;
+    let mut social_profile_fixture = fixtures::SocialProfileFixture::default();
+    social_profile_fixture.load()?;
+    social_profile_fixture.seed(test.db_pool()).await?;
 
-    let author = valid_author(true, Some(social_providers));
-    let ids = seed_author(test.db_pool(), &[author.clone()]).await?;
-    let id = &ids[0].to_string();
+    let mut author_fixture = AuthorFixture::default();
+    author_fixture.load()?;
+    author_fixture.seed(test.db_pool(), true).await?;
+
+    let author_template = &author_fixture.valid_fixtures[0];
+
+    let mut author_profiles = Vec::new();
+
+    for profile in social_profile_fixture.valid_fixtures {
+        author_profiles.push(SocialProfile {
+            provider_name: profile.provider_name,
+            website: author_template.name().unwrap().to_owned(),
+        });
+    }
+
+    let author = AuthorBuilder::default()
+        .set_id(&author_template.id().unwrap())
+        .set_name(author_template.name().unwrap())
+        .set_surname(author_template.surname().unwrap())
+        .set_email(author_template.email().unwrap())
+        .set_description(author_template.description().unwrap())
+        .set_shareable(author_template.shareable())
+        .set_website(author_template.website().unwrap())
+        .set_social_profiles(&author_profiles)
+        .build()
+        .map_err(|e| format!("Failed to build a test author using a builder: {e}"))?;
 
     let patched_author = AuthorBuilder::default()
-        .set_id(id)
+        .set_id(&author.id().unwrap())
         .set_name("Juana")
         .set_surname("Cierva")
         .set_email("juana@mail.com")
@@ -574,11 +657,11 @@ async fn patch_with_credentials() -> Result<(), String> {
         .build()
         .expect("Failed to build an author descriptor");
 
-    let response = test.patch(id, &patched_author).await;
+    let response = test.patch(&author.id().unwrap(), &patched_author).await;
 
     assert_eq!(response.status().as_u16(), StatusCode::OK);
 
-    let response = test.get(&format!("/{id}")).await;
+    let response = test.get(&format!("/{}", &author.id().unwrap())).await;
     assert_eq!(response.status().as_u16(), StatusCode::OK);
     let retrieved_author: Author = serde_json::from_str(
         &response
@@ -587,7 +670,23 @@ async fn patch_with_credentials() -> Result<(), String> {
             .expect("Failed to read response's payload"),
     )
     .expect("Failed to deserialize author");
-    assert_eq!(patched_author, retrieved_author);
+
+    assert_eq!(retrieved_author.name(), patched_author.name());
+    assert_eq!(retrieved_author.surname(), patched_author.surname());
+    assert_eq!(retrieved_author.description(), patched_author.description());
+    assert_eq!(retrieved_author.website(), patched_author.website());
+    assert_eq!(retrieved_author.email(), patched_author.email());
+    assert_eq!(retrieved_author.shareable(), patched_author.shareable());
+    for (p1, p2) in zip(
+        retrieved_author.social_profiles().unwrap(),
+        patched_author.social_profiles().unwrap(),
+    ) {
+        if !p1.website.contains(&p2.website) {
+            println!("{:?}", p2);
+            println!("{:?}", p1);
+            panic!("Social profile not found");
+        }
+    }
 
     Ok(())
 }
@@ -595,7 +694,7 @@ async fn patch_with_credentials() -> Result<(), String> {
 #[actix_web::test]
 async fn search_no_credentials() -> Result<(), String> {
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_no_credentials(&mut test_builder);
+    TestBuilder::api_no_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     info!("Test Case::resource::/author (GET) -> Search a nonexisting author");
@@ -616,13 +715,11 @@ async fn search_no_credentials() -> Result<(), String> {
     assert!(payload.len() == 0);
 
     info!("Test Case::resource::/author (GET) -> Search existing authors");
-    let author_shareable = valid_author(true, None);
-    let author_no_shareable = valid_author(false, None);
-    let ids = seed_author(
-        test.db_pool(),
-        &[author_shareable.clone(), author_no_shareable.clone()],
-    )
-    .await?;
+    let mut author_fixture = AuthorFixture::default();
+    author_fixture.load()?;
+    author_fixture.seed(test.db_pool(), false).await?;
+    let author_shareable = &author_fixture.valid_fixtures[0];
+    let author_no_shareable = &author_fixture.valid_fixtures[1];
 
     let query = format!("?name={}", author_shareable.name().unwrap());
     let response = test.search(&query).await;
@@ -636,8 +733,7 @@ async fn search_no_credentials() -> Result<(), String> {
     .expect("Failed to deserialize the payload");
     assert_eq!(payload.len(), 1);
     let response_author = &payload[0];
-    assert!(ids
-        .contains(&Uuid::parse_str(&response_author.id().unwrap()).expect("Failed to parse Uuid")));
+    assert_eq!(author_shareable.id(), response_author.id());
     assert_eq!(author_shareable.name(), response_author.name());
     assert_eq!(author_shareable.surname(), response_author.surname());
     assert_eq!(author_shareable.email(), response_author.email());
@@ -659,8 +755,7 @@ async fn search_no_credentials() -> Result<(), String> {
     .expect("Failed to deserialize the payload");
     assert_eq!(payload.len(), 1);
     let response_author = &payload[0];
-    assert!(ids
-        .contains(&Uuid::parse_str(&response_author.id().unwrap()).expect("Failed to parse Uuid")));
+    assert_eq!(author_no_shareable.id(), response_author.id());
     assert_eq!(author_no_shareable.name(), response_author.name());
     assert_eq!(author_no_shareable.surname(), response_author.surname());
     assert_eq!(None, response_author.email());
@@ -673,7 +768,7 @@ async fn search_no_credentials() -> Result<(), String> {
 #[actix_web::test]
 async fn search_with_credentials() -> Result<(), String> {
     let mut test_builder = AuthorApiBuilder::default();
-    TestBuilder::author_api_with_credentials(&mut test_builder);
+    TestBuilder::api_with_credentials(&mut test_builder);
     let test = test_builder.build().await;
 
     info!("Test Case::resource::/author (GET) -> Search a nonexisting author");
@@ -694,13 +789,11 @@ async fn search_with_credentials() -> Result<(), String> {
     assert!(payload.len() == 0);
 
     info!("Test Case::resource::/author (GET) -> Search existing authors");
-    let author_shareable = valid_author(true, None);
-    let author_no_shareable = valid_author(false, None);
-    let ids = seed_author(
-        test.db_pool(),
-        &[author_shareable.clone(), author_no_shareable.clone()],
-    )
-    .await?;
+    let mut author_fixture = AuthorFixture::default();
+    author_fixture.load()?;
+    author_fixture.seed(test.db_pool(), false).await?;
+    let author_shareable = &author_fixture.valid_fixtures[0];
+    let author_no_shareable = &author_fixture.valid_fixtures[1];
 
     let query = format!("?name={}", author_shareable.name().unwrap());
     let response = test.search(&query).await;
@@ -714,8 +807,7 @@ async fn search_with_credentials() -> Result<(), String> {
     .expect("Failed to deserialize the payload");
     assert_eq!(payload.len(), 1);
     let response_author = &payload[0];
-    assert!(ids
-        .contains(&Uuid::parse_str(&response_author.id().unwrap()).expect("Failed to parse Uuid")));
+    assert_eq!(author_shareable.id(), response_author.id());
     assert_eq!(author_shareable.name(), response_author.name());
     assert_eq!(author_shareable.surname(), response_author.surname());
     assert_eq!(author_shareable.email(), response_author.email());
@@ -737,8 +829,7 @@ async fn search_with_credentials() -> Result<(), String> {
     .expect("Failed to deserialize the payload");
     assert_eq!(payload.len(), 1);
     let response_author = &payload[0];
-    assert!(ids
-        .contains(&Uuid::parse_str(&response_author.id().unwrap()).expect("Failed to parse Uuid")));
+    assert_eq!(author_no_shareable.id(), response_author.id());
     assert_eq!(author_no_shareable.name(), response_author.name());
     assert_eq!(author_no_shareable.surname(), response_author.surname());
     assert_eq!(author_no_shareable.email(), response_author.email());
