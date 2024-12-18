@@ -5,8 +5,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::domain::{
-    DataDomainError, QuantityUnit, Recipe, RecipeCategory, RecipeContains, ServerError, StarRate,
-    Tag,
+    QuantityUnit, Recipe, RecipeCategory, RecipeContains, ServerError, StarRate, Tag,
 };
 use sqlx::{Executor, MySqlPool};
 use std::error::Error;
@@ -137,7 +136,10 @@ pub async fn register_new_recipe(
 }
 
 #[instrument(skip(pool))]
-pub async fn get_recipe_from_db(pool: &MySqlPool, id: &Uuid) -> Result<Recipe, Box<dyn Error>> {
+pub async fn get_recipe_from_db(
+    pool: &MySqlPool,
+    id: &Uuid,
+) -> Result<Option<Recipe>, Box<dyn Error>> {
     let row = sqlx::query!("SELECT * FROM `Cocktail` WHERE id=?", id.to_string(),)
         .fetch_optional(pool)
         .await
@@ -147,7 +149,8 @@ pub async fn get_recipe_from_db(pool: &MySqlPool, id: &Uuid) -> Result<Recipe, B
         })?;
 
     if row.is_none() {
-        return Err(Box::new(DataDomainError::InvalidId));
+        info!("The given ID was not found in the recipes DB.");
+        return Ok(None);
     }
 
     let record = row.unwrap();
@@ -178,7 +181,7 @@ pub async fn get_recipe_from_db(pool: &MySqlPool, id: &Uuid) -> Result<Recipe, B
         record.owner.as_deref(),
     )?;
 
-    Ok(recipe)
+    Ok(Some(recipe))
 }
 
 #[instrument(skip(pool))]
