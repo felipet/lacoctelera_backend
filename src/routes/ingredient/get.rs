@@ -4,8 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::domain::Ingredient;
-use actix_web::{get, web, HttpResponse, Responder, Result};
+use crate::{domain::Ingredient, routes::ingredient::utils::check_ingredient};
+use actix_web::{get, web, HttpResponse};
 use serde::Deserialize;
 use sqlx::MySqlPool;
 use std::error::Error;
@@ -55,7 +55,7 @@ pub struct QueryData {
 pub async fn search_ingredient(
     pool: web::Data<MySqlPool>,
     req: web::Query<QueryData>,
-) -> impl Responder {
+) -> Result<HttpResponse, Box<dyn Error>> {
     // First, validate the given form as a correct name for the instantiation of an Ingredient.
     let query_ingredient = match Ingredient::parse(None, &req.name, "other", None) {
         Ok(ingredient) => {
@@ -65,7 +65,7 @@ pub async fn search_ingredient(
             );
             ingredient
         }
-        Err(e) => return HttpResponse::BadRequest().body(format!("{}", e)),
+        Err(e) => return Ok(HttpResponse::BadRequest().body(format!("{}", e))),
     };
 
     // Issue a query to the DB to search for ingredients using the given name.
@@ -87,35 +87,10 @@ pub async fn search_ingredient(
         Err(_) => Vec::new(),
     };
 
-    HttpResponse::Ok().json(ingredients)
+    Ok(HttpResponse::Ok().json(ingredients))
 }
 
 #[get("{id}")]
-pub async fn get_ingredient(_req: web::Path<String>) -> impl Responder {
-    HttpResponse::NotImplemented().finish()
-}
-
-#[instrument(skip(pool, ingredient))]
-async fn check_ingredient(
-    pool: &MySqlPool,
-    ingredient: Ingredient,
-) -> Result<Vec<Ingredient>, Box<dyn Error>> {
-    let rows = sqlx::query!(
-        r#"SELECT `id`, `name`, `category`, `description` FROM Ingredient i WHERE i.name like ?"#,
-        format!("%{}%", ingredient.name()),
-    )
-    .fetch_all(pool)
-    .await?;
-
-    let mut ingredients = Vec::new();
-    for r in rows {
-        ingredients.push(Ingredient::parse(
-            Some(&r.id),
-            r.name.as_str(),
-            r.category.as_str(),
-            r.description.as_deref(),
-        )?);
-    }
-
-    Ok(ingredients)
+pub async fn get_ingredient(_req: web::Path<String>) -> Result<HttpResponse, Box<dyn Error>> {
+    Ok(HttpResponse::NotImplemented().finish())
 }

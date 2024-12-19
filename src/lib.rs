@@ -38,6 +38,7 @@ pub mod routes {
     pub mod ingredient {
         pub mod get;
         pub mod post;
+        mod utils;
 
         pub use get::{search_ingredient, QueryData};
         pub use post::{add_ingredient, FormData};
