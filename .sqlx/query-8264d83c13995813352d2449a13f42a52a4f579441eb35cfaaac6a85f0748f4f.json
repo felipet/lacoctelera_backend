@@ -1,0 +1,54 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT `id`, `name`, `category`, `description`\n        FROM `Ingredient` WHERE `id`=?",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | PRIMARY_KEY | NO_DEFAULT_VALUE",
+          "max_size": 160
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "max_size": 160
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "category",
+        "type_info": {
+          "type": "String",
+          "flags": "NOT_NULL | ENUM | NO_DEFAULT_VALUE",
+          "max_size": 40
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": {
+          "type": "VarString",
+          "flags": "",
+          "max_size": 1020
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "8264d83c13995813352d2449a13f42a52a4f579441eb35cfaaac6a85f0748f4f"
+}

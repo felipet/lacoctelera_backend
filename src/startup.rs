@@ -116,6 +116,7 @@ pub async fn run(
                 web::scope("/ingredient")
                     .wrap(cors_ingredient)
                     .service(routes::ingredient::search_ingredient)
+                    .service(routes::ingredient::get_ingredient)
                     .service(routes::ingredient::add_ingredient),
             )
             .service(
