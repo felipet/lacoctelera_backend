@@ -1,0 +1,36 @@
+name: Push a new Docker image to the registry
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+    pkg:
+        name: Build
+        runs-on: ubuntu-latest
+        steps:
+            - name: Docker meta
+              id: meta
+              uses: docker/metadata-action@v5
+              with:
+                images: |
+                  eu.nubecita.lacoctelera.backend/app
+                tags: |
+                  type=semver,pattern={{version}}
+                  type=semver,pattern={{major}}.{{minor}}
+                  -
+            - name: Login to GitHub Container Registry
+              uses: docker/login-action@v3
+              with:
+                registry: ghcr.io
+                username: ${{ github.actor }}
+                password: ${{ secrets.REGISTRY_TOKEN }}
+            - name: Build and Push
+              uses: docker/build-push-action@v5
+              with:
+                context: .
+                push: ${{ github.event_name == 'push' }}
+                tags: ${{ steps.meta.outputs.tags }}
+                labels: ${{ steps.meta.outputs.labels }}

@@ -4,13 +4,21 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::domain::Ingredient;
-use actix_web::{get, web, HttpResponse, Responder, Result};
+use crate::{
+    domain::{DataDomainError, Ingredient},
+    routes::ingredient::utils::{check_ingredient, get_ingredient_from_db},
+};
+use actix_web::{
+    get,
+    web::{Data, Path, Query},
+    HttpResponse,
+};
 use serde::Deserialize;
 use sqlx::MySqlPool;
 use std::error::Error;
-use tracing::{debug, info, instrument};
+use tracing::{debug, error, info, instrument};
 use utoipa::IntoParams;
+use uuid::Uuid;
 
 /// `Struct` QueryData models the expected fields for a query string.
 ///
@@ -53,9 +61,9 @@ pub struct QueryData {
 )]
 #[get("")]
 pub async fn search_ingredient(
-    pool: web::Data<MySqlPool>,
-    req: web::Query<QueryData>,
-) -> impl Responder {
+    pool: Data<MySqlPool>,
+    req: Query<QueryData>,
+) -> Result<HttpResponse, Box<dyn Error>> {
     // First, validate the given form as a correct name for the instantiation of an Ingredient.
     let query_ingredient = match Ingredient::parse(None, &req.name, "other", None) {
         Ok(ingredient) => {
@@ -65,7 +73,7 @@ pub async fn search_ingredient(
             );
             ingredient
         }
-        Err(e) => return HttpResponse::BadRequest().body(format!("{}", e)),
+        Err(e) => return Ok(HttpResponse::BadRequest().body(format!("{}", e))),
     };
 
     // Issue a query to the DB to search for ingredients using the given name.
@@ -87,35 +95,65 @@ pub async fn search_ingredient(
         Err(_) => Vec::new(),
     };
 
-    HttpResponse::Ok().json(ingredients)
+    Ok(HttpResponse::Ok().json(ingredients))
 }
 
-#[get("{id}")]
-pub async fn get_ingredient(_req: web::Path<String>) -> impl Responder {
-    HttpResponse::NotImplemented().finish()
-}
-
-#[instrument(skip(pool, ingredient))]
-async fn check_ingredient(
-    pool: &MySqlPool,
-    ingredient: Ingredient,
-) -> Result<Vec<Ingredient>, Box<dyn Error>> {
-    let rows = sqlx::query!(
-        r#"SELECT `id`, `name`, `category`, `description` FROM Ingredient i WHERE i.name like ?"#,
-        format!("%{}%", ingredient.name()),
+#[utoipa::path(
+    get,
+    context_path = "/ingredient/",
+    tag = "Ingredient",
+    responses(
+        (
+            status = 200,
+            description = "The given ID matches an ingredient entry in the DB.",
+            body = Ingredient,
+            headers(
+                ("Content-Length"),
+                ("Content-Type"),
+                ("Date"),
+                ("Vary", description = "Origin,Access-Control-Request-Method,Access-Control-Request-Headers")
+            ),
+        ),
+        (
+            status = 404,
+            description = "The given ingredient's ID was not found in the DB.",
+            headers(
+                ("Content-Length"),
+                ("Date"),
+                ("Vary", description = "Origin,Access-Control-Request-Method,Access-Control-Request-Headers")
+            ),
+        ),
+        (
+            status = 429, description = "**Too many requests.**",
+            headers(
+                ("Cache-Control", description = "Cache control is set to *no-cache*."),
+                ("Access-Control-Allow-Origin"),
+                ("Retry-After", description = "Amount of time between requests (seconds).")
+            )
+        )
     )
-    .fetch_all(pool)
-    .await?;
+)]
+#[instrument(
+    skip(pool, req),
+    fields(
+        ingredient_id = %req.0,
+    )
+)]
+#[get("{id}")]
+pub async fn get_ingredient(
+    req: Path<(String,)>,
+    pool: Data<MySqlPool>,
+) -> Result<HttpResponse, Box<dyn Error>> {
+    let id = match Uuid::parse_str(&req.0) {
+        Ok(id) => id,
+        Err(e) => {
+            error!("{e}");
+            return Err(Box::new(DataDomainError::InvalidId));
+        }
+    };
 
-    let mut ingredients = Vec::new();
-    for r in rows {
-        ingredients.push(Ingredient::parse(
-            Some(&r.id),
-            r.name.as_str(),
-            r.category.as_str(),
-            r.description.as_deref(),
-        )?);
+    match get_ingredient_from_db(&pool, &id).await? {
+        Some(ingredient) => Ok(HttpResponse::Ok().json(ingredient)),
+        None => Ok(HttpResponse::NotFound().finish()),
     }
-
-    Ok(ingredients)
 }
