@@ -1,4 +1,4 @@
-name: Push a new Docker image to the registry
+name: Docker build & push
 
 on:
   workflow_dispatch:
@@ -7,30 +7,36 @@ on:
       - 'v*'
 
 jobs:
-    pkg:
-        name: Build
+    docker:
         runs-on: ubuntu-latest
         steps:
-            - name: Docker meta
-              id: meta
-              uses: docker/metadata-action@v5
-              with:
-                images: |
-                  eu.nubecita.lacoctelera.backend/app
-                tags: |
-                  type=semver,pattern={{version}}
-                  type=semver,pattern={{major}}.{{minor}}
-                  -
+            - name: Checkout
+              uses: actions/checkout@v4
             - name: Login to GitHub Container Registry
               uses: docker/login-action@v3
               with:
                 registry: ghcr.io
                 username: ${{ github.actor }}
                 password: ${{ secrets.REGISTRY_TOKEN }}
+            - name: Docker meta
+              id: meta
+              uses: docker/metadata-action@v5
+              with:
+                images: ghcr.io/${{ github.repository }}
+                labels: |
+                  org.opencontainers.image.title=La Coctelera Backend
+                  org.opencontainers.image.description=Backend Service
+                tags: |
+                  type=semver,pattern={{version}}
+                  type=semver,pattern={{major}}.{{minor}}
+                  type=ref,enable=true,priority=600,prefix=,suffix=,event=branch
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
             - name: Build and Push
               uses: docker/build-push-action@v5
               with:
                 context: .
-                push: ${{ github.event_name == 'push' }}
+                file: ./Dockerfile
+                push: true
                 tags: ${{ steps.meta.outputs.tags }}
                 labels: ${{ steps.meta.outputs.labels }}
