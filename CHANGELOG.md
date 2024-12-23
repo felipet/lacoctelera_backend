@@ -62,7 +62,7 @@ _Nothing yet_
 
 - API docs for the method GET of `/author` are wrong for an empty search (GH-38).
 
-## [0.6.0] - 2024-12-28
+## [0.6.0] - 2024-11-28
 
 ### Added
 
@@ -71,3 +71,10 @@ _Nothing yet_
 ### Bugs fixed
 
 - The return code of the GET methods of the `/recipe` resource match what is included in the docs.
+
+## [0.7.0] - 2024-12-23
+
+### Added
+
+- Implemented GET of the `/ingredient` resource.
+- Included configuration files and Github workflows to generate a Docker image of the service.
