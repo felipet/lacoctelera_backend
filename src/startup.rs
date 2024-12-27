@@ -87,70 +87,73 @@ pub async fn run(
     let db_pool = web::Data::new(db_pool);
     let mail_client = web::Data::new(mail_client);
 
-    let server = HttpServer::new(move || {
-        let cors_ingredient = Cors::default()
-            .allow_any_origin()
-            .allowed_methods(vec!["GET", "POST"])
-            .allowed_header(http::header::CONTENT_TYPE)
-            .max_age(3600);
+    let server =
+        HttpServer::new(move || {
+            let cors_ingredient = Cors::default()
+                .allow_any_origin()
+                .allowed_methods(vec!["GET", "POST"])
+                .allowed_header(http::header::CONTENT_TYPE)
+                .max_age(3600);
 
-        let cors_author = Cors::default()
-            .allow_any_origin()
-            .allowed_methods(vec!["GET", "POST", "PATCH", "DELETE", "HEAD"])
-            .allowed_header(http::header::CONTENT_TYPE)
-            .max_age(86400);
+            let cors_author = Cors::default()
+                .allow_any_origin()
+                .allowed_methods(vec!["GET", "POST", "PATCH", "DELETE", "HEAD"])
+                .allowed_header(http::header::CONTENT_TYPE)
+                .max_age(86400);
 
-        let cors_recipe = Cors::default()
-            .allow_any_origin()
-            .allowed_methods(vec!["GET", "POST", "PATCH", "DELETE", "HEAD"])
-            .allowed_header(http::header::CONTENT_TYPE)
-            .max_age(3600);
+            let cors_recipe = Cors::default()
+                .allow_any_origin()
+                .allowed_methods(vec!["GET", "POST", "PATCH", "DELETE", "HEAD"])
+                .allowed_header(http::header::CONTENT_TYPE)
+                .max_age(3600);
 
-        App::new()
-            .wrap(TracingLogger::default())
-            .service(routes::echo)
-            .service(health::options_echo)
-            .service(health::health_check)
-            .service(health::options_health)
-            .service(
-                web::scope("/ingredient")
-                    .wrap(cors_ingredient)
-                    .service(routes::ingredient::search_ingredient)
-                    .service(routes::ingredient::get_ingredient)
-                    .service(routes::ingredient::add_ingredient),
-            )
-            .service(
-                web::scope("/author")
-                    .wrap(cors_author)
-                    .service(routes::author::search_author)
-                    .service(routes::author::patch_author)
-                    .service(routes::author::head_author)
-                    .service(routes::author::post_author)
-                    .service(routes::author::get_author)
-                    .service(routes::author::delete_author),
-            )
-            .service(
-                web::scope("/recipe")
-                    .wrap(cors_recipe)
-                    .service(routes::recipe::get_recipe)
-                    .service(routes::recipe::search_recipe)
-                    .service(routes::recipe::head_recipe)
-                    .service(routes::recipe::post_recipe),
-            )
-            .service(fs::Files::new("/static", "./static/resources").show_files_listing())
-            .service(
-                web::scope("/token")
-                    .service(routes::token::token_req_get)
-                    .service(routes::token::token_req_post)
-                    .service(routes::token::req_validation),
-            )
-            .service(SwaggerUi::new("/{_:.*}").url("/api-docs/openapi.json", ApiDoc::openapi()))
-            .app_data(db_pool.clone())
-            .app_data(mail_client.clone())
-    })
-    .workers(max_workers as usize)
-    .listen(listener)?
-    .run();
+            App::new()
+                .wrap(TracingLogger::default())
+                .service(routes::echo)
+                .service(health::options_echo)
+                .service(health::health_check)
+                .service(health::options_health)
+                .service(
+                    web::scope("/ingredient")
+                        .wrap(cors_ingredient)
+                        .service(routes::ingredient::search_ingredient)
+                        .service(routes::ingredient::get_ingredient)
+                        .service(routes::ingredient::add_ingredient),
+                )
+                .service(
+                    web::scope("/author")
+                        .wrap(cors_author)
+                        .service(routes::author::search_author)
+                        .service(routes::author::patch_author)
+                        .service(routes::author::head_author)
+                        .service(routes::author::post_author)
+                        .service(routes::author::get_author)
+                        .service(routes::author::delete_author),
+                )
+                .service(
+                    web::scope("/recipe")
+                        .wrap(cors_recipe)
+                        .service(routes::recipe::get_recipe)
+                        .service(routes::recipe::search_recipe)
+                        .service(routes::recipe::head_recipe)
+                        .service(routes::recipe::post_recipe),
+                )
+                .service(fs::Files::new("/static", "./static/resources").show_files_listing())
+                .service(
+                    web::scope("/token")
+                        .service(routes::token::token_req_get)
+                        .service(routes::token::token_req_post)
+                        .service(routes::token::req_validation),
+                )
+                .service(web::scope("/api").service(
+                    SwaggerUi::new("/{_:.*}").url("api-docs/openapi.json", ApiDoc::openapi()),
+                ))
+                .app_data(db_pool.clone())
+                .app_data(mail_client.clone())
+        })
+        .workers(max_workers as usize)
+        .listen(listener)?
+        .run();
 
     Ok(server)
 }
