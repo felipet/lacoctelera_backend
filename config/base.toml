@@ -6,7 +6,7 @@
 [application]
 port = "9090"
 host = "127.0.0.1"
-base_url = "http://127.0.0.1"
+base_url = "/api"
 max_workers = "12"
 
 [application.log_settings]

@@ -5,7 +5,7 @@
 [application]
     tracing_level = "debug"
     host = "127.0.0.1"
-    base_url = "http://127.0.0.1"
+    base_url = "/coctelera/api"
     max_workers = 2
 [database]
     username = "root"

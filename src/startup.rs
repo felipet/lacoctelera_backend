@@ -80,35 +80,39 @@ impl Application {
 pub async fn run(
     listener: TcpListener,
     db_pool: MySqlPool,
-    _base_url: String,
+    base_url: String,
     max_workers: u16,
     mail_client: MailjetClient,
 ) -> Result<Server, anyhow::Error> {
     let db_pool = web::Data::new(db_pool);
     let mail_client = web::Data::new(mail_client);
 
-    let server =
-        HttpServer::new(move || {
-            let cors_ingredient = Cors::default()
-                .allow_any_origin()
-                .allowed_methods(vec!["GET", "POST"])
-                .allowed_header(http::header::CONTENT_TYPE)
-                .max_age(3600);
+    let server = HttpServer::new(move || {
+        let cors_ingredient = Cors::default()
+            .allow_any_origin()
+            .allowed_methods(vec!["GET", "POST"])
+            .allowed_header(http::header::CONTENT_TYPE)
+            .max_age(3600);
 
-            let cors_author = Cors::default()
-                .allow_any_origin()
-                .allowed_methods(vec!["GET", "POST", "PATCH", "DELETE", "HEAD"])
-                .allowed_header(http::header::CONTENT_TYPE)
-                .max_age(86400);
+        let cors_author = Cors::default()
+            .allow_any_origin()
+            .allowed_methods(vec!["GET", "POST", "PATCH", "DELETE", "HEAD"])
+            .allowed_header(http::header::CONTENT_TYPE)
+            .max_age(86400);
 
-            let cors_recipe = Cors::default()
-                .allow_any_origin()
-                .allowed_methods(vec!["GET", "POST", "PATCH", "DELETE", "HEAD"])
-                .allowed_header(http::header::CONTENT_TYPE)
-                .max_age(3600);
+        let cors_recipe = Cors::default()
+            .allow_any_origin()
+            .allowed_methods(vec!["GET", "POST", "PATCH", "DELETE", "HEAD"])
+            .allowed_header(http::header::CONTENT_TYPE)
+            .max_age(3600);
 
-            App::new()
-                .wrap(TracingLogger::default())
+        App::new()
+            .wrap(TracingLogger::default())
+            .service(
+                web::scope(&format!(
+                    "{base_url}/v{}",
+                    env!("CARGO_PKG_VERSION").split(".").collect::<Vec<&str>>()[0]
+                ))
                 .service(routes::echo)
                 .service(health::options_echo)
                 .service(health::health_check)
@@ -145,15 +149,14 @@ pub async fn run(
                         .service(routes::token::token_req_post)
                         .service(routes::token::req_validation),
                 )
-                .service(web::scope("/api").service(
-                    SwaggerUi::new("/{_:.*}").url("api-docs/openapi.json", ApiDoc::openapi()),
-                ))
-                .app_data(db_pool.clone())
-                .app_data(mail_client.clone())
-        })
-        .workers(max_workers as usize)
-        .listen(listener)?
-        .run();
+                .service(SwaggerUi::new("/{_:.*}").url("api-docs/openapi.json", ApiDoc::openapi())),
+            )
+            .app_data(db_pool.clone())
+            .app_data(mail_client.clone())
+    })
+    .workers(max_workers as usize)
+    .listen(listener)?
+    .run();
 
     Ok(server)
 }
