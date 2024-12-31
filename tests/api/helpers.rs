@@ -310,7 +310,12 @@ pub async fn spawn_app() -> TestApp {
         .expect("Failed to build La Coctelera application.");
 
     let port = application.port();
-    let address = format!("{}:{port}", configuration.application.base_url);
+    let address = format!(
+        "http://{}:{port}{}/v{}",
+        configuration.application.host,
+        configuration.application.base_url,
+        env!("CARGO_PKG_VERSION").split(".").collect::<Vec<&str>>()[0]
+    );
     let _ = spawn(application.run_until_stopped());
 
     // Instantiate an HTTP client to run the tests against the app's backend.
