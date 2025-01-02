@@ -19,7 +19,7 @@ use secrecy::ExposeSecret;
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool};
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
-use utoipa::OpenApi;
+use utoipa::{openapi, OpenApi};
 use utoipa_swagger_ui::SwaggerUi;
 
 pub struct Application {
@@ -106,50 +106,54 @@ pub async fn run(
             .allowed_header(http::header::CONTENT_TYPE)
             .max_age(3600);
 
+        let relative_url = &format!(
+            "{base_url}/v{}",
+            env!("CARGO_PKG_VERSION").split(".").collect::<Vec<&str>>()[0]
+        );
+        let mut api_doc = ApiDoc::openapi();
+        api_doc.servers = Some(Vec::from([openapi::Server::new(relative_url)]));
+
         App::new()
             .wrap(TracingLogger::default())
             .service(
-                web::scope(&format!(
-                    "{base_url}/v{}",
-                    env!("CARGO_PKG_VERSION").split(".").collect::<Vec<&str>>()[0]
-                ))
-                .service(routes::echo)
-                .service(health::options_echo)
-                .service(health::health_check)
-                .service(health::options_health)
-                .service(
-                    web::scope("/ingredient")
-                        .wrap(cors_ingredient)
-                        .service(routes::ingredient::search_ingredient)
-                        .service(routes::ingredient::get_ingredient)
-                        .service(routes::ingredient::add_ingredient),
-                )
-                .service(
-                    web::scope("/author")
-                        .wrap(cors_author)
-                        .service(routes::author::search_author)
-                        .service(routes::author::patch_author)
-                        .service(routes::author::head_author)
-                        .service(routes::author::post_author)
-                        .service(routes::author::get_author)
-                        .service(routes::author::delete_author),
-                )
-                .service(
-                    web::scope("/recipe")
-                        .wrap(cors_recipe)
-                        .service(routes::recipe::get_recipe)
-                        .service(routes::recipe::search_recipe)
-                        .service(routes::recipe::head_recipe)
-                        .service(routes::recipe::post_recipe),
-                )
-                .service(fs::Files::new("/static", "./static/resources").show_files_listing())
-                .service(
-                    web::scope("/token")
-                        .service(routes::token::token_req_get)
-                        .service(routes::token::token_req_post)
-                        .service(routes::token::req_validation),
-                )
-                .service(SwaggerUi::new("/{_:.*}").url("api-docs/openapi.json", ApiDoc::openapi())),
+                web::scope(relative_url)
+                    .service(routes::echo)
+                    .service(health::options_echo)
+                    .service(health::health_check)
+                    .service(health::options_health)
+                    .service(
+                        web::scope("/ingredient")
+                            .wrap(cors_ingredient)
+                            .service(routes::ingredient::search_ingredient)
+                            .service(routes::ingredient::get_ingredient)
+                            .service(routes::ingredient::add_ingredient),
+                    )
+                    .service(
+                        web::scope("/author")
+                            .wrap(cors_author)
+                            .service(routes::author::search_author)
+                            .service(routes::author::patch_author)
+                            .service(routes::author::head_author)
+                            .service(routes::author::post_author)
+                            .service(routes::author::get_author)
+                            .service(routes::author::delete_author),
+                    )
+                    .service(
+                        web::scope("/recipe")
+                            .wrap(cors_recipe)
+                            .service(routes::recipe::get_recipe)
+                            .service(routes::recipe::search_recipe)
+                            .service(routes::recipe::head_recipe)
+                            .service(routes::recipe::post_recipe),
+                    )
+                    .service(fs::Files::new("/static", "./static/resources").show_files_listing())
+                    .service(
+                        web::scope("/token")
+                            .service(routes::token::token_req_get)
+                            .service(routes::token::token_req_post)
+                            .service(routes::token::req_validation),
+                    )
+                    .service(SwaggerUi::new("/{_:.*}").url("api-docs/openapi.json", api_doc)),
             )
             .app_data(db_pool.clone())
             .app_data(mail_client.clone())
