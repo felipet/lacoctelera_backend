@@ -112,6 +112,11 @@ pub async fn run(
         );
         let mut api_doc = ApiDoc::openapi();
         api_doc.servers = Some(Vec::from([openapi::Server::new(relative_url)]));
+        let mut external_docs = openapi::ExternalDocs::new(
+            "https://felipet.github.io/lacoctelera_backend/lacoctelera/",
+        );
+        external_docs.description = Some(String::from("Code documentation of the API (Rust docs)"));
+        api_doc.external_docs = Some(external_docs);
 
         App::new()
             .wrap(TracingLogger::default())

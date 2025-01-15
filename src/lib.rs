@@ -202,17 +202,23 @@ impl TryFrom<&str> for QueryId {
     ),
     info(
         title = "La Coctelera API",
-        description = r#"## A REST API for La Coctelera backend service.
-La Coctelera is a web service that aims to share a public data base with recipes for cocktails. The service is
-split in two parts: the backend, which exposes a public REST API; and the frontend, which offers an
-user-friendly web interface.
+        description = r#"## A REST API for La Coctelera.
+La Coctelera is a collaborative open data base to share cocktail recipes. You can find more information about
+the project in this [website](https://felipe.nubecita.eu/projects/lacoctelera/).
 
-If you got here, you're likely interested on using the API to connect your own app or service to the data base.
-To protect the DB against SPAM and malicious people, all the endpoints that modify data are protected. If you
-just need to retrieve recipes and data from the DB, go ahead and use the public API. And if you aim to go
-deeper and be able to modify the DB, request an API token using this URL: /token/request.
+The project is aiming to develop a front-end web site that would ease the access to the data base to the main
+public. However, this part of the project is still under development.
 
-If you have any troubles with the access token, or questions about how to use the API, contact the sysadmin:
+An open REST API is offered to the community, so anyone can implement a client of the data base for a specific
+platform. This page shows the OpenAPI docs for the API.
+
+Accessing data from the data base is open with no restrictions (besides author's information marked as
+non-public), but in order to add new data, a registered account is needed to avoid spamming the data base.
+
+If you are interested on developing a front-end client, and you aim to access the restricted resources of the
+API, please, go to the [token request page](./token/request).
+
+**We hope you'll enjoy using this data base, and let's share our love for cocktails!**
 "#,
         contact(name = "Felipe Torres González", email = "admin@nubecita.eu")
     ),
