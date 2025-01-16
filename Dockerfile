@@ -6,7 +6,7 @@ FROM rust:1.83.0 AS builder
 WORKDIR /app
 COPY . .
 ENV SQLX_OFFLINE=true
-ENV SWAGGER_UI_OVERWRITE_FOLDER=$(pwd)/swagger-ui
+ENV SWAGGER_UI_OVERWRITE_FOLDER=/app/swagger-ui
 RUN cargo build --release
 
 # Runtime stage -------------
