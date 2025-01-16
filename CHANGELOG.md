@@ -78,3 +78,11 @@ _Nothing yet_
 
 - Implemented GET of the `/ingredient` resource.
 - Included configuration files and Github workflows to generate a Docker image of the service.
+
+## [0.8.0] - 2025-01-16
+
+### Added
+
+- Modified the style sheet of the API docs page.
+- Improved the project's documentation.
+- The service accepts a configuration parameter to change the deployment path of the resources.
