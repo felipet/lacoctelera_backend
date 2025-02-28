@@ -20,3 +20,6 @@ jobs:
                 login_password: ${{ secrets.REGISTRY_TOKEN }}
                 dockerfile: ./Containerfile
                 push: true
+                security: |
+                  --security-opt=seccomp=unconfined
+                  --security-opt=apparmor=unconfined
