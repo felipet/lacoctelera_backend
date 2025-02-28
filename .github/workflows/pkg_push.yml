@@ -19,6 +19,7 @@ jobs:
                 login_username: ${{ github.actor }}
                 login_password: ${{ secrets.REGISTRY_TOKEN }}
                 dockerfile: ./Containerfile
+                tags: ghcr.io/felipet/lacoctelera_backend:main
                 push: true
                 security: |
                   --security-opt=seccomp=unconfined
