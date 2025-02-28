@@ -7,6 +7,10 @@ name: Rust CI Development Flow
 on:
   push:
     branches: [ "devel" ]
+    paths:
+      - 'src/**'
+      - 'Containerfile'
+      - 'Cargo.**'
   workflow_dispatch:
     inputs:
       TEST_LOG:

@@ -5,8 +5,16 @@ name: Rust CI Main Flow
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'Containerfile'
+      - 'Cargo.**'
   pull_request:
     branches: [ "main", "devel" ]
+    paths:
+      - 'src/**'
+      - 'Containerfile'
+      - 'Cargo.**'
 
 env:
   CARGO_TERM_COLOR: always
@@ -90,7 +98,7 @@ jobs:
              LACOCTELERA__EMAIL_CLIENT__ADMIN_ADDRESS=${{secrets.MAILJET_FROM_EMAIL}}
              cargo test
       - name: Generate code coverage
-        run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail" 
+        run: DATABASE_URL="mariadb://root:password@localhost:3306/test_cocktail"
              LACOCTELERA__EMAIL_CLIENT__SANDBOX_MODE=true
              LACOCTELERA__EMAIL_CLIENT__API_USER=${{secrets.MAILJET_API_USER}}
              LACOCTELERA__EMAIL_CLIENT__API_KEY=${{secrets.MAILJET_API_KEY}}
