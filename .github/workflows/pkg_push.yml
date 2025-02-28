@@ -20,10 +20,3 @@ jobs:
                 login_password: ${{ secrets.REGISTRY_TOKEN }}
                 dockerfile: ./Containerfile
                 push: true
-                labels: |
-                  org.opencontainers.image.title=La Coctelera Backend
-                  org.opencontainers.image.description=Backend Service
-                tags: |
-                  type=semver,pattern={{version}}
-                  type=semver,pattern={{major}}.{{minor}}
-                  type=ref,enable=true,priority=600,prefix=,suffix=,event=branch
