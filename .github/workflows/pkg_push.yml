@@ -1,4 +1,4 @@
-name: Docker build & push
+name: Podman build & push
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - 'v*'
 
 jobs:
-    docker:
+    build-push:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
@@ -15,7 +15,7 @@ jobs:
             - name: Use Podman Build and Push Action
               uses: frozen-tapestry/podman-build-push-action@v1
               with:
-                login_registry: ghcr.io/${{ github.repository }}
+                login_registry: ghcr.io
                 login_username: ${{ github.actor }}
                 login_password: ${{ secrets.REGISTRY_TOKEN }}
                 dockerfile: ./Containerfile
