@@ -1,5 +1,6 @@
 # Build stage ---------------
 
+EXPOSE 9090/tcp
 FROM docker.io/rust:1.85.0 AS builder
 WORKDIR /app
 COPY . .

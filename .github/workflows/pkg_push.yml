@@ -20,6 +20,11 @@ jobs:
                 login_password: ${{ secrets.REGISTRY_TOKEN }}
                 dockerfile: ./Containerfile
                 tags: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+                extra_args: |
+                  --annotation "org.opencontainers.image.authors=Felipe Torres González<admin@nubecita.eu>"
+                  --annotation "org.opencontainers.image.documentation=https://felipe.nubecita.eu/projects/lacoctelera/"
+                  --annotation "org.opencontainers.image.licenses=MPL-2.0"
+                  --annotation "org.opencontainers.image.description=Backend service of La Coctelera"
                 push: true
                 security: |
                   --security-opt=seccomp=unconfined
