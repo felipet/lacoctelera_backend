@@ -29,6 +29,7 @@ sqlx = { version = "0.8.2", default-features = false, features = ["runtime-tokio
 thiserror = "1.0.63"
 tracing = "0.1.40"
 tracing-actix-web = "0.7.11"
+tracing-journald = "0.3.1"
 tracing-subscriber = { version = "0.3.18", features = ["std"] }
 utoipa = { version = "4.2.3", features = ["actix_extras", "uuid"] }
 utoipa-actix-web = "0.1.2"

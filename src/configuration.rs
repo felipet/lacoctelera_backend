@@ -145,12 +145,10 @@ pub struct LogSettings {
     /// See [tracing::Level](https://docs.rs/tracing/0.1.40/tracing/struct.Level.html).
     /// Accepted values are specified at [LogSettings::get_verbosity_level].
     pub tracing_level: String,
-    /// Output logs to a file. The value is the name of the output file.
-    pub log_output_file: String,
     /// Enable console log output.
-    pub enable_console_log: Option<bool>,
-    /// Console verbosity.
-    pub console_tracing_level: Option<String>,
+    pub pretty_log: Option<bool>,
+    /// Is the application running by systemd? If so, log to journald.
+    pub journald: Option<bool>,
 }
 
 /// Settings for the email client [mailjet_client](https://crates.io/crates/mailjet_client)
@@ -255,26 +253,6 @@ impl LogSettings {
     /// - `warn` or any other string to set the verbosity to `WARN`.
     pub fn get_verbosity_level(&self) -> LevelFilter {
         LogSettings::verbosity(&self.tracing_level)
-    }
-
-    /// Get the chosen verbosity level for the console output as a [LevelFilter] object.
-    ///
-    /// # Description
-    ///
-    /// The tracing level for the console is not mandatory, thus it might be not present
-    /// in the configuration file passed to the application. When no value was set,
-    /// a severity level [LevelFilter::WARN] is returned.
-    pub fn get_console_tracing_level(&self) -> LevelFilter {
-        if let Some(level) = &self.console_tracing_level {
-            LogSettings::verbosity(level)
-        } else {
-            LevelFilter::WARN
-        }
-    }
-
-    /// Return if the console log was set via configuration file.
-    pub fn console_log_enabled(&self) -> bool {
-        self.enable_console_log.unwrap_or(false)
     }
 
     /// Translate a string into a [LevelFilter] or return a [LevelFilter::WARN] by default.

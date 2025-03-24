@@ -1418,6 +1418,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "tracing-actix-web",
+ "tracing-journald",
  "tracing-subscriber",
  "utoipa 4.2.3",
  "utoipa-actix-web",
@@ -3259,6 +3260,17 @@ checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
 dependencies = [
  "once_cell",
  "valuable",
+]
+
+[[package]]
+name = "tracing-journald"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc0b4143302cf1022dac868d521e36e8b27691f72c84b3311750d5188ebba657"
+dependencies = [
+ "libc",
+ "tracing-core",
+ "tracing-subscriber",
 ]
 
 [[package]]

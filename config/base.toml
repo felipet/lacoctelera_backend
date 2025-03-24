@@ -11,7 +11,7 @@ max_workers = "12"
 
 [application.log_settings]
 tracing_level = "info"
-log_output_file = "lacoctelera_log"
+journald = false
 
 # DB server
 [database]

@@ -3,7 +3,6 @@
 # These settings should only be used for development scenarios.
 
 [application]
-    tracing_level = "debug"
     host = "127.0.0.1"
     base_url = "/coctelera/api"
     max_workers = 2
