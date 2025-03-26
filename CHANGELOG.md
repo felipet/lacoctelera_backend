@@ -86,3 +86,14 @@ _Nothing yet_
 - Modified the style sheet of the API docs page.
 - Improved the project's documentation.
 - The service accepts a configuration parameter to change the deployment path of the resources.
+
+## [0.9.0] - 2025-03-26
+
+
+### Added
+
+- Prepare the container image to be deployed by Podman.
+- Improved metainfo of the container image.
+- Prepared container image to be handled by systemd.
+- Improved logs to be handled by systemd.
+- Prepare the container image to support auto-updates using Podman and systemd.
