@@ -6,7 +6,7 @@
 
 use crate::configuration::LogSettings;
 use tracing::error;
-use tracing_subscriber::{fmt, fmt::Formatter, prelude::*, Layer};
+use tracing_subscriber::{fmt, prelude::*, Layer};
 
 pub fn configure_tracing(conf: &LogSettings) {
     // Store all the tracing layers in an array to allow a dynamic configuration

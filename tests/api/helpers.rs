@@ -24,19 +24,18 @@ use uuid::Uuid;
 static TRACING: Lazy<()> = Lazy::new(|| {
     let mut settings = LogSettings {
         tracing_level: "info".into(),
-        log_output_file: "debug".into(),
-        enable_console_log: Some(true),
-        console_tracing_level: Some("debug".to_string()),
+        journald: Some(false),
+        pretty_log: Some(true),
     };
 
     if std::env::var("TEST_LOG").is_ok() {
         let level = std::env::var("TEST_LOG").expect("Failed to read the content of TEST_LOG var");
         match level.as_str() {
-            "info" => settings.console_tracing_level = Some("info".into()),
-            "debug" => settings.console_tracing_level = Some("debug".into()),
-            "warn" => settings.console_tracing_level = Some("warn".into()),
-            "error" => settings.console_tracing_level = Some("error".into()),
-            &_ => settings.console_tracing_level = Some("none".into()),
+            "info" => settings.tracing_level = "info".into(),
+            "debug" => settings.tracing_level = "debug".into(),
+            "warn" => settings.tracing_level = "warn".into(),
+            "error" => settings.tracing_level = "error".into(),
+            &_ => settings.tracing_level = "none".into(),
         }
 
         if level != "none" {
